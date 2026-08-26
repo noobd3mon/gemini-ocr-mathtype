@@ -1,0 +1,43 @@
+# OCR PDF → Word
+
+OCR tài liệu PDF sang Markdown (Gemini hoặc OpenAI-compatible), cắt ảnh hình/khung, xuất Word với công thức OMML (Pandoc) hoặc MathType OLE. File Word lưu trên Supabase 3 ngày.
+
+## Stack
+- Next.js 15 (App Router) + React 19 + TypeScript
+- Supabase Storage (private buckets, signed URLs)
+- pdfjs-dist (render PDF → ảnh), JSZip (post-process docx), KaTeX (preview)
+- Pandoc Server (OMML) + MathType Server (OLE) — external Render services
+
+## Setup
+
+### 1. Supabase
+1. Tạo project tại supabase.com.
+2. SQL Editor → chạy `supabase/setup.sql` (tạo 2 private bucket + RLS deny-all).
+3. Settings → API: lấy **Project URL** và **service_role** key.
+
+### 2. Vercel
+1. Import repo → Vercel.
+2. Environment Variables:
+   - `SUPABASE_URL` = Project URL
+   - `SUPABASE_SERVICE_ROLE_KEY` = service_role key
+   - `CRON_SECRET` = chuỗi ngẫu nhiên bất kỳ (bảo vệ `/api/cleanup`)
+   - `PANDOC_URL` (tùy chọn) = `https://pandoc-server.onrender.com/convert`
+   - `MATHTYPE_URL` (tùy chọn) = `https://latex2mathtypeweb.onrender.com`
+3. Deploy. Cron dọn dẹp chạy mỗi ngày 03:00.
+
+### 3. Chạy local
+```bash
+npm install
+cp .env.example .env.local   # điền Supabase + CRON_SECRET
+npm run dev
+```
+
+## Cách dùng
+1. Chọn provider (Gemini hoặc OpenAI), dán API keys (mỗi dòng một key — tự rotate khi rate-limit).
+2. Kéo thả PDF → "Chạy OCR".
+3. Sửa Markdown nếu cần → xem trước KaTeX.
+4. "Xuất Word (Equation)" hoặc "Xuất Word (MathType)". File lưu server 3 ngày + tải về máy.
+
+## Lưu trữ
+- `temp-images/`: ảnh cắt tạm, xóa sau khi xuất.
+- `word-exports/`: file Word, signed URL hết hạn sau 3 ngày, cron xóa file cũ.
