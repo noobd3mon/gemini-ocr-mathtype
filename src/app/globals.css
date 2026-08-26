@@ -1,0 +1,12 @@
+@import 'katex/dist/katex.min.css';
+
+:root {
+  --bg: #0f1220; --card: #1a1f33; --ink: #e7e9f3; --mut: #9aa3c0;
+  --acc: #6c8cff; --line: #2b3253; --ok: #3ecf8e; --err: #ff6b6b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
+.container { max-width: 1280px; margin: 0 auto; padding: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+button { cursor: pointer; }
