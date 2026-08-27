@@ -8,6 +8,11 @@ export function arrayBufferToBase64(buf: ArrayBuffer): string {
   return btoa(bin);
 }
 
+/** Copy an ArrayBuffer view into a standalone ArrayBuffer (TS 5.7 BlobPart-safe). */
+export function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 export function dataUrlToBlob(dataUrl: string): Blob {
   const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/s);
   if (!m) throw new Error('Data URL ảnh không hợp lệ.');

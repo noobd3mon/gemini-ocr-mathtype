@@ -187,7 +187,7 @@
         <td>Miễn phí</td>
       </tr>
     </table>
-    <div class="box note"><b>Server Pandoc và MathType:</b> hai dịch vụ chuyển công thức (<code>pandoc-server.onrender.com</code>, <code>latex2mathtypeweb.onrender.com</code>) đã được cấu hình sẵn trong code, bạn không cần cài gì. Nếu bạn tự vận hành server riêng, xem biến <code>PANDOC_URL</code> / <code>MATHTYPE_URL</code> ở mục 8.</div>
+    <div class="box note"><b>Máy chủ Pandoc tích hợp sẵn:</b> từ bản này, việc chuyển Markdown → Word (Equation/OMML) chạy ngay trong app trên Vercel (không phụ thuộc server Render bên ngoài, <b>không giới hạn 1 triệu ký tự</b>, không bị “ngủ” cold-start). Lần build đầu tiên, Vercel tự tải Pandoc (~40MB) qua <code>npm run prebuild</code> — không cần làm gì. Biến <code>PANDOC_URL</code> chỉ còn là <i>phương án dự phòng</i>. Server MathType vẫn là dịch vụ ngoài như cũ.</div>
   </section>
 
   <!-- ================= 3 ================= -->
@@ -331,7 +331,7 @@ npm run dev</code></pre>
       <tr>
         <td><b>Xuất Word (Equation / OMML)</b></td>
         <td>Mặc định — tương thích mọi máy có Word 2007+</td>
-        <td>Công thức là công thức Word chuẩn (OMML), chỉnh sửa được ngay trong Word. App tự ép font <b>Times New Roman</b> toàn văn bản và tô style nhãn câu hỏi: <b><span style="color:#1D4ED8">Câu 1.</span></b> / <b><span style="color:#1D4ED8">A.</span> <span style="color:#1D4ED8">B.</span> <span style="color:#1D4ED8">C.</span> <span style="color:#1D4ED8">D.</span></b> màu xanh đậm in đậm, <b>a) b) c) d)</b> in đậm.</td>
+        <td>Chạy trên <b>máy chủ Pandoc tích hợp trong app</b>: ảnh được upload lên Supabase dạng signed URL (payload nhỏ → không vướng giới hạn ký tự), file Word hoàn chỉnh lưu thẳng lên server 3 ngày. App tự ép font <b>Times New Roman</b> toàn văn bản và tô style nhãn câu hỏi: <b><span style="color:#1D4ED8">Câu 1.</span></b> / <b><span style="color:#1D4ED8">A.</span> <span style="color:#1D4ED8">B.</span> <span style="color:#1D4ED8">C.</span> <span style="color:#1D4ED8">D.</span></b> màu xanh đậm in đậm, <b>a) b) c) d)</b> in đậm. Nếu máy chủ tích hợp lỗi, app tự chuyển sang server Pandoc dự phòng bên ngoài (giới hạn 1 triệu ký tự).</td>
       </tr>
       <tr>
         <td><b>Xuất Word (MathType OLE)</b></td>
@@ -366,8 +366,8 @@ npm run dev</code></pre>
       <tr><td><code>SUPABASE_URL</code></td><td>✅</td><td>Project URL của Supabase, dạng <code>https://xxxx.supabase.co</code>. <span class="mut">Mục 3.3.</span></td></tr>
       <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>✅</td><td>Key <code>service_role</code> của Supabase. <b>Chỉ server dùng</b> — app chặn tuyệt đối không đưa vào trình duyệt. <span class="mut">Mục 3.3.</span></td></tr>
       <tr><td><code>CRON_SECRET</code></td><td>✅</td><td>Mật khẩu bảo vệ <code>/api/cleanup</code>. Vercel cron tự gửi kèm — chỉ cần đặt một chuỗi ngẫu nhiên 16+ ký tự.</td></tr>
-      <tr><td><code>PANDOC_URL</code></td><td>—</td><td>Server Pandoc chuyển LaTeX → OMML. Mặc định <code>https://pandoc-server.onrender.com/convert</code>.</td></tr>
-      <tr><td><code>MATHTYPE_URL</code></td><td>—</td><td>Server MathType chuyển LaTeX → OLE. Mặc định <code>https://latex2mathtypeweb.onrender.com</code>.</td></tr>
+      <tr><td><code>PANDOC_URL</code></td><td>—</td><td><b>Chỉ là dự phòng</b> — chế độ mặc định dùng máy chủ Pandoc tích hợp trong app (không giới hạn ký tự). Điền biến này để ép dùng server Pandoc ngoài, ví dụ <code>https://pandoc-server.onrender.com/convert</code> (giới hạn 1 triệu ký tự).</td></tr>
+      <tr><td><code>MATHTYPE_URL</code></td><td>—</td><td>Server MathType chuyển LaTeX → OLE. Mặc định <code>https://latex2mathtypeweb.onrender.com</code>. Ảnh gửi dạng base64 vì server này không tải ảnh từ URL.</td></tr>
     </table>
     <p class="mut">Lưu ý: <code>PANDOC_URL</code> / <code>MATHTYPE_URL</code> không điền cũng chạy — app dùng mặc định. Điền chỉ khi bạn tự vận hành server riêng (ví dụ dùng file <code>docs</code> của app gốc).</p>
   </section>
@@ -387,7 +387,7 @@ npm run dev</code></pre>
       </tr>
       <tr>
         <td>Xuất Word lỗi <code>Pandoc Server Error: 502/503</code> lần đầu</td>
-        <td>Server Pandoc chạy free tier trên Render — “ngủ” sau ~15 phút không dùng, request đầu tiên phải đánh thức. <b>Bấm xuất lại lần nữa là được</b> (app đã tự thử 2 lần). Nếu vẫn lỗi, thử lại sau 1 phút.</td>
+        <td>Chế độ mặc định giờ chạy trên <b>máy chủ Pandoc tích hợp trong app</b> — không gặp lỗi này. Lỗi chỉ xảy ra khi app đang dùng server dự phòng bên ngoài (Render free tier “ngủ” sau ~15 phút không dùng): <b>bấm xuất lại lần nữa là được</b> (app đã tự thử 2 lần).</td>
       </tr>
       <tr>
         <td>Xuất MathType hiện “<i>N thành công, M lỗi</i>”</td>
@@ -474,6 +474,8 @@ vercel.json                      # Cron dọn dẹp 03:00 UTC hằng ngày
       <tr><td>Lưu file Word trên server</td><td>3 ngày (signed URL 3 ngày + cron dọn lúc 03:00 UTC)</td></tr>
       <tr><td>Gemini — tự lùi model khi hết hạn mức</td><td><code>gemini-3.7-flash</code> → <code>gemini-3.6-flash</code> → <code>gemini-3.5-flash</code> (dùng lại nguyên các key; chỉ lùi khi <b>tất cả</b> key đều bị giới hạn, hoặc model trả 404)</td></tr>
       <tr><td>Cool-down khi key bị 429</td><td>60 giây rồi tự đưa key trở lại vòng xoay</td></tr>
+      <tr><td>Xuất Equation — giới hạn ký tự</td><td><b>Không giới hạn</b> (máy chủ Pandoc tích hợp; đã kiểm thử 2 triệu ký tự). Ảnh truyền qua Supabase signed URL nên payload luôn nhỏ. Server dự phòng bên ngoài giới hạn 1 triệu ký tự.</td></tr>
+      <tr><td>Xuất MathType — file lớn</td><td>File Word &gt; 3.5MB được upload lên server theo từng phần (chunk 3MB) để né giới hạn 4.5MB body của Vercel.</td></tr>
       <tr><td>Xem trước Markdown</td><td>Cắt ở 300.000 kí tự đầu (xuất Word vẫn lấy <b>toàn bộ</b> nội dung)</td></tr>
     </table>
   </section>

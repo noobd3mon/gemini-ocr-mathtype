@@ -1,6 +1,7 @@
 node_modules/
 .next/
 out/
+bin/
 .env
 .env.local
 .env*.local

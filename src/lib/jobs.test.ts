@@ -5,8 +5,11 @@ type UploadFn = (path: string, file: Blob, opts?: Record<string, unknown>) => Pr
 type SignedFn = (path: string, expires: number) => Promise<{ data: { signedUrl: string }; error: null }>;
 type ListFn = (path: string, opts?: Record<string, unknown>) => Promise<{ data: unknown[]; error: null }>;
 type RemoveFn = (paths: string[]) => Promise<{ data: unknown; error: null }>;
+type DownloadFn = (path: string) => Promise<{ data: { arrayBuffer(): Promise<ArrayBuffer> }; error: null }>;
 
-function fakeStorage(opts: { upload: UploadFn; createSignedUrl: SignedFn; list: ListFn; remove: RemoveFn }) {
+function fakeStorage(opts: {
+  upload: UploadFn; createSignedUrl: SignedFn; list: ListFn; remove: RemoveFn; download?: DownloadFn;
+}) {
   return {
     storage: {
       from: () => ({
@@ -14,6 +17,7 @@ function fakeStorage(opts: { upload: UploadFn; createSignedUrl: SignedFn; list: 
         createSignedUrl: opts.createSignedUrl,
         list: opts.list,
         remove: opts.remove,
+        download: opts.download,
       }),
     },
   };
@@ -94,5 +98,47 @@ describe('JobsService', () => {
     expect(count).toBeGreaterThanOrEqual(1);
     expect(removed.some((p) => p.startsWith('j-old'))).toBe(true);
     expect(removed.some((p) => p.startsWith('j-young'))).toBe(false);
+  });
+
+  it('uploadPart uploads a chunk into the job parts folder', async () => {
+    const uploaded: string[] = [];
+    const storage = fakeStorage({
+      upload: async (path) => { uploaded.push(path); return { path }; },
+      createSignedUrl: async () => ({ data: { signedUrl: '' }, error: null }),
+      list: async () => ({ data: [], error: null }),
+      remove: async () => ({ data: null, error: null }),
+    });
+    const svc = new JobsService(storage as never, fixedClock);
+    await svc.uploadPart('j-9', 2, new Blob(['chunk']));
+    expect(uploaded).toEqual(['j-9/parts/2']);
+  });
+
+  it('finalizeFromParts assembles chunks in order, saves the docx and cleans up parts', async () => {
+    const uploaded: string[] = [];
+    const removed: string[] = [];
+    const downloads: string[] = [];
+    const parts = ['AAA', 'BBB', 'CCC'];
+    const storage = fakeStorage({
+      upload: async (path) => { uploaded.push(path); return { path }; },
+      createSignedUrl: async (path) => ({ data: { signedUrl: `https://d.test/${path}` }, error: null }),
+      list: async (path) => ({
+        data: [{ name: 'parts' }, { name: 'p0.png' }].map((x) => ({ ...x, updated_at: new Date(now).toISOString() })),
+        error: null,
+      }),
+      remove: async (paths) => { removed.push(...paths); return { data: null, error: null }; },
+      download: async (path) => {
+        downloads.push(path);
+        const idx = Number(path.split('/').pop());
+        const bytes = new TextEncoder().encode(parts[idx]);
+        return { data: { arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) }, error: null };
+      },
+    });
+    const svc = new JobsService(storage as never, fixedClock);
+    const url = await svc.finalizeFromParts('j-10', 'final.docx', 3);
+    expect(downloads).toEqual(['j-10/parts/0', 'j-10/parts/1', 'j-10/parts/2']);
+    expect(uploaded).toEqual(['j-10/final.docx']);
+    expect(url).toContain('https://d.test/j-10/final.docx');
+    // deleteTempImages liệt kê ${jobId}/ → xoá cả thư mục parts
+    expect(removed).toEqual(['j-10/parts', 'j-10/p0.png']);
   });
 });

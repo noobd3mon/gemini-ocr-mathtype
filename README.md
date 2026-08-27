@@ -6,9 +6,10 @@ OCR tài liệu PDF sang Markdown (Gemini hoặc OpenAI-compatible), cắt ảnh
 
 ## Stack
 - Next.js 15 (App Router) + React 19 + TypeScript
+- **Máy chủ Pandoc tích hợp sẵn** — chạy Pandoc binary ngay trong Vercel Function (`/api/pandoc`), **không giới hạn 1 triệu ký tự**, không phụ thuộc server Render bên ngoài (lần build đầu tự tải Pandoc ~40MB qua `npm run prebuild`)
 - Supabase Storage (private buckets, signed URLs)
 - pdfjs-dist (render PDF → ảnh), JSZip (post-process docx), KaTeX (preview)
-- Pandoc Server (OMML) + MathType Server (OLE) — external Render services
+- MathType Server (OLE) — dịch vụ ngoài; ảnh gửi dạng base64 (server này không tải ảnh từ URL)
 
 ## Setup
 
@@ -38,7 +39,8 @@ npm run dev
 1. Chọn provider (Gemini hoặc OpenAI), dán API keys (mỗi dòng một key — tự rotate khi rate-limit; Gemini tự lùi model `3.7-flash → 3.6-flash → 3.5-flash` khi mọi key hết hạn mức).
 2. Kéo thả PDF → "Chạy OCR".
 3. Sửa Markdown nếu cần → xem trước KaTeX.
-4. "Xuất Word (Equation)" hoặc "Xuất Word (MathType)". File lưu server 3 ngày + tải về máy.
+4. "Xuất Word (Equation)": chạy trên máy chủ Pandoc tích hợp — ảnh cắt được upload lên Supabase dạng signed URL, file Word hoàn chỉnh (đã ép font + style nhãn câu) lưu thẳng vào server 3 ngày. Nếu máy chủ tích hợp lỗi sẽ tự fallback sang server Pandoc ngoài (giới hạn 1 triệu ký tự).
+   "Xuất Word (MathType)": server MathType ngoài; file lớn được upload lên server theo từng phần (chunk) để né giới hạn 4.5MB request.
 
 ## Giới hạn & hoạt động
 - **Gemini**: gửi cả file PDF trong 1 request — giới hạn ~14MB (đủ cho phần lớn tài liệu; file lớn hơn sẽ báo lỗi, hãy tách hoặc dùng chế độ OpenAI).
