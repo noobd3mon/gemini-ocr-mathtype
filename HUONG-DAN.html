@@ -148,7 +148,7 @@
       <li>Bạn sửa Markdown nếu muốn, xem trước trực tiếp (công thức render bằng KaTeX).</li>
       <li>Bấm xuất Word → chọn <b>Equation (OMML)</b> qua server Pandoc hoặc <b>MathType (OLE)</b> qua server MathType → file tải về máy và đồng thời được lưu trên server 3 ngày.</li>
     </ol>
-    <div class="box note"><b>Nhiều API key, tự xoay vòng:</b> dán nhiều key (mỗi dòng một key). Khi một key bị giới hạn tốc độ (429/quota), app tự chuyển sang key kế tiếp và làm lại — bạn không phải bấm lại gì cả.</div>
+    <div class="box note"><b>Nhiều API key, tự xoay vòng:</b> dán nhiều key (mỗi dòng một key). Khi một key bị giới hạn tốc độ (429/quota), app tự chuyển sang key kế tiếp và làm lại — bạn không phải bấm lại gì cả. Hết sạch key ở model đang dùng, app còn tự hạ model Gemini (<code>3.7 → 3.6 → 3.5</code>) rồi thử lại với nguyên các key đó.</div>
   </section>
 
   <!-- ================= 2 ================= -->
@@ -310,7 +310,7 @@ npm run dev</code></pre>
         </ul>
       </li>
       <li><b>Dán API key</b> vào khung key: <u>mỗi key một dòng</u>, có thể dán nhiều key để tự xoay vòng khi gặp giới hạn tốc độ. Dòng trống bị bỏ qua.</li>
-      <li><b>Chọn model Gemini</b>: <code>gemini-3.5-flash</code> (mặc định, cân bằng) · <code>gemini-3.6-flash</code> (mới nhất) · <code>gemini-3.1-flash-lite</code> (rẻ/nhanh) · <code>gemini-3-flash-preview</code>.</li>
+      <li><b>Chọn model Gemini khởi đầu</b>: <code>gemini-3.7-flash</code> (mới nhất, mặc định) · <code>gemini-3.6-flash</code> · <code>gemini-3.5-flash</code>. <b>Tự lùi model khi hết hạn mức:</b> nếu <u>tất cả</u> key đều bị giới hạn ở model đang dùng, app tự thử lại với model cũ hơn — <code>3.7 → 3.6 → 3.5</code> — dùng lại nguyên các key đó (hạn mức Gemini tính riêng theo model nên key vừa bị chặn ở model cũ vẫn chạy được model kế).</li>
       <li><b>Số trang tối đa</b>: mặc định 30, tối đa 200. Trang vượt số này sẽ không được OCR.</li>
       <li><b>Độ phân giải render</b>: 2x phù hợp đa số; 3x cho tài liệu chữ nhỏ/nhiều chi tiết (nặng bộ nhớ hơn).</li>
       <li><b>Hướng dẫn thêm</b> (tuỳ chọn): ví dụ <i>“Giữ nguyên tên riêng trong ngoặc vuông”</i> — được chèn thêm vào yêu cầu gửi cho model.</li>
@@ -472,6 +472,7 @@ vercel.json                      # Cron dọn dẹp 03:00 UTC hằng ngày
       <tr><td>OpenAI — số trang mỗi request</td><td>4 trang (điều chỉnh được qua <code>pagesPerRequest</code> trong code)</td></tr>
       <tr><td>Số trang OCR tối đa / lần</td><td>200 (mặc định 30)</td></tr>
       <tr><td>Lưu file Word trên server</td><td>3 ngày (signed URL 3 ngày + cron dọn lúc 03:00 UTC)</td></tr>
+      <tr><td>Gemini — tự lùi model khi hết hạn mức</td><td><code>gemini-3.7-flash</code> → <code>gemini-3.6-flash</code> → <code>gemini-3.5-flash</code> (dùng lại nguyên các key; chỉ lùi khi <b>tất cả</b> key đều bị giới hạn, hoặc model trả 404)</td></tr>
       <tr><td>Cool-down khi key bị 429</td><td>60 giây rồi tự đưa key trở lại vòng xoay</td></tr>
       <tr><td>Xem trước Markdown</td><td>Cắt ở 300.000 kí tự đầu (xuất Word vẫn lấy <b>toàn bộ</b> nội dung)</td></tr>
     </table>

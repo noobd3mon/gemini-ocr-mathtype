@@ -35,7 +35,7 @@ npm run dev
 ```
 
 ## Cách dùng
-1. Chọn provider (Gemini hoặc OpenAI), dán API keys (mỗi dòng một key — tự rotate khi rate-limit).
+1. Chọn provider (Gemini hoặc OpenAI), dán API keys (mỗi dòng một key — tự rotate khi rate-limit; Gemini tự lùi model `3.7-flash → 3.6-flash → 3.5-flash` khi mọi key hết hạn mức).
 2. Kéo thả PDF → "Chạy OCR".
 3. Sửa Markdown nếu cần → xem trước KaTeX.
 4. "Xuất Word (Equation)" hoặc "Xuất Word (MathType)". File lưu server 3 ngày + tải về máy.

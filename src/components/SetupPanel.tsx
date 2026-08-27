@@ -8,6 +8,10 @@ interface Props {
 }
 
 export function SetupPanel({ settings, update }: Props) {
+  // Giá trị model lưu cũ (không còn trong danh sách) vẫn hiển thị để không mất cấu hình.
+  const modelOptions = GEMINI_MODELS.includes(settings.geminiModel)
+    ? GEMINI_MODELS
+    : [settings.geminiModel, ...GEMINI_MODELS];
   return (
     <section className="panel setup-panel">
       <h2>Cấu hình</h2>
@@ -35,7 +39,7 @@ export function SetupPanel({ settings, update }: Props) {
           <label className="field">
             <span className="field-label">Model</span>
             <select value={settings.geminiModel} onChange={(e) => update({ geminiModel: e.target.value })}>
-              {GEMINI_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+              {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </label>
         </>

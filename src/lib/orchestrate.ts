@@ -22,7 +22,6 @@ export async function runOcrGemini(file: File, settings: Settings, onProgress: O
     );
   }
   const pdfBase64 = arrayBufferToBase64(await file.arrayBuffer());
-  onProgress(`Đang OCR ${settings.geminiModel}...`);
   return ocrPdfWithGemini({
     pdfBase64,
     keys: settings.geminiKeys,

@@ -1,10 +1,12 @@
-import { KeyPool, runWithRotation } from '@/lib/key-rotation';
+import { KeyPool, KeyPoolExhaustedError, runWithRotation } from '@/lib/key-rotation';
+import { GEMINI_MODELS } from '@/lib/settings-store';
 import { buildCorePrompt } from './prompt';
 
 export interface GeminiOcrOptions {
   pdfBase64: string;
   keys: string[];
-  model: string;
+  /** Model khởi đầu; khi mọi key bị giới hạn (hoặc model 404) sẽ tự lùi về model cũ hơn trong GEMINI_MODELS. */
+  model?: string;
   extraPrompt?: string;
   onProgress?: (msg: string) => void;
   onRotated?: (info: { key: string; attempts: number }) => void;
@@ -12,38 +14,76 @@ export interface GeminiOcrOptions {
 
 export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
+export function buildModelChain(start: string, ladder: string[] = GEMINI_MODELS): string[] {
+  const idx = ladder.indexOf(start);
+  return idx >= 0 ? ladder.slice(idx) : [start, ...ladder];
+}
+
+// Model chưa tồn tại / chưa mở cho key này → thử model kế trong ladder thay vì báo lỗi.
+function isModelUnavailableError(err: unknown): boolean {
+  if (err && typeof err === 'object') {
+    const e = err as { status?: number; message?: string };
+    if (e.status === 404) return true;
+    return /not found|is not supported/i.test(e.message ?? '');
+  }
+  return false;
+}
+
 export async function ocrPdfWithGemini(opts: GeminiOcrOptions): Promise<string> {
-  const pool = KeyPool.create(opts.keys);
+  const chain = buildModelChain(opts.model ?? GEMINI_MODELS[0]);
   const prompt = buildCorePrompt({ extraPrompt: opts.extraPrompt });
-  const url = `${GEMINI_API_BASE}/models/${encodeURIComponent(opts.model)}:generateContent`;
-  return runWithRotation(
-    pool,
-    async (key) => {
-      opts.onProgress?.(`Đang gửi PDF tới ${opts.model}...`);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: prompt },
-                { inlineData: { mimeType: 'application/pdf', data: opts.pdfBase64 } },
+  const url = (model: string) => `${GEMINI_API_BASE}/models/${encodeURIComponent(model)}:generateContent`;
+
+  let lastError: unknown;
+  for (let i = 0; i < chain.length; i++) {
+    const model = chain[i];
+    // Pool mới cho từng model: hạn mức Gemini tính theo model, nên key vừa bị
+    // giới hạn ở model cũ vẫn dùng được ngay với model kế tiếp.
+    const pool = KeyPool.create(opts.keys);
+    try {
+      return await runWithRotation(
+        pool,
+        async (key) => {
+          opts.onProgress?.(`Đang OCR ${model}...`);
+          const res = await fetch(url(model), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    { text: prompt },
+                    { inlineData: { mimeType: 'application/pdf', data: opts.pdfBase64 } },
+                  ],
+                },
               ],
-            },
-          ],
-        }),
-      });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw Object.assign(new Error(`Gemini API lỗi ${res.status}: ${errText.slice(0, 300)}`), { status: res.status });
+            }),
+          });
+          if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw Object.assign(new Error(`Gemini API lỗi ${res.status}: ${errText.slice(0, 300)}`), { status: res.status });
+          }
+          const data = await res.json();
+          const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
+          if (!text.trim()) throw new Error('Gemini trả về kết quả rỗng.');
+          return text;
+        },
+        { onRotated: opts.onRotated },
+      );
+    } catch (err) {
+      lastError = err;
+      const exhausted = err instanceof KeyPoolExhaustedError;
+      const unavailable = isModelUnavailableError(err);
+      if (!exhausted && !unavailable) throw err;
+      if (i + 1 < chain.length) {
+        opts.onProgress?.(
+          exhausted
+            ? `Tất cả key bị giới hạn với ${model} — thử lại với ${chain[i + 1]}...`
+            : `${model} không khả dụng — thử lại với ${chain[i + 1]}...`,
+        );
       }
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-      if (!text.trim()) throw new Error('Gemini trả về kết quả rỗng.');
-      return text;
-    },
-    { onRotated: opts.onRotated },
-  );
+    }
+  }
+  throw lastError;
 }

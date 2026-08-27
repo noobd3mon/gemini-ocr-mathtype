@@ -14,12 +14,14 @@ export interface Settings {
   baseName: string;
 }
 
-export const GEMINI_MODELS = [
+// Xếp từ mới nhất xuống cũ nhất. Khi mọi key đều bị rate-limit ở model đang
+// dùng, app tự lùi xuống model kế tiếp với cùng các key (hạn mức Gemini tính
+// theo model nên key vừa bị giới hạn ở model cũ vẫn dùng được model kế).
+export const GEMINI_MODELS: string[] = [
+  'gemini-3.7-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-3-flash-preview',
-] as const;
+];
 
 export const DEFAULT_SETTINGS: Settings = {
   provider: 'gemini',
@@ -28,7 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   openaiBaseUrl: '',
   openaiModel: 'gpt-4o',
   openaiMaxTokens: null,
-  geminiModel: 'gemini-3.5-flash',
+  geminiModel: 'gemini-3.7-flash',
   maxPages: 30,
   renderScale: '2',
   extraPrompt: '',
