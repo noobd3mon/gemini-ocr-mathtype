@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { SetupPanel } from '@/components/SetupPanel';
 import { Dropzone } from '@/components/Dropzone';
@@ -32,18 +32,21 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  const markers = parseImageMarkers(markdown);
-  const stats = {
-    characters: countCharacters(markdown),
-    pages: countPages(markdown),
-    formulas: countFormulas(markdown),
-    images: countDataUriImages(markdown) + markers.length,
-  };
+  const markers = useMemo(() => parseImageMarkers(markdown), [markdown]);
+  const stats = useMemo(
+    () => ({
+      characters: countCharacters(markdown),
+      pages: countPages(markdown),
+      formulas: countFormulas(markdown),
+      images: countDataUriImages(markdown) + markers.length,
+    }),
+    [markdown, markers],
+  );
 
   async function runOcr() {
     if (!pdfFile) return;
-    if (settings.provider === 'gemini' && settings.geminiKeys.length === 0) { setStatus('Nhập ít nhất một Gemini API key.'); return; }
-    if (settings.provider === 'openai' && settings.openaiKeys.length === 0) { setStatus('Nhập ít nhất một OpenAI API key.'); return; }
+    if (settings.provider === 'gemini' && settings.geminiKeys.filter((k) => k.trim()).length === 0) { setStatus('Nhập ít nhất một Gemini API key.'); return; }
+    if (settings.provider === 'openai' && settings.openaiKeys.filter((k) => k.trim()).length === 0) { setStatus('Nhập ít nhất một OpenAI API key.'); return; }
     setBusy(true); setStatus('');
     try {
       let md: string;

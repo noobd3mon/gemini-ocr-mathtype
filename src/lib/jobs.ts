@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const SIGNED_URL_TTL = 3 * 24 * 60 * 60; // 3 ngày (giây)
+// Supabase list defaults to 100 entries; request the max so large jobs / many
+// folders are not silently truncated.
+const LIST_LIMIT = 1000;
 
 export function splitKey(key: string): [string, string] {
   const slash = key.indexOf('/');
@@ -49,7 +52,7 @@ export class JobsService {
 
   async deleteTempImages(jobId: string): Promise<void> {
     const bucket = this.supabase.storage.from('temp-images');
-    const list = await bucket.list(jobId);
+    const list = await bucket.list(jobId, { limit: LIST_LIMIT });
     if (list.error) throw new Error(`Không liệt kê được temp-images (${jobId}).`);
     const paths = (list.data ?? []).map((f) => `${jobId}/${f.name}`);
     if (paths.length === 0) return;
@@ -62,12 +65,12 @@ export class JobsService {
     let removed = 0;
     for (const bucketName of ['temp-images', 'word-exports']) {
       const storage = this.supabase.storage.from(bucketName);
-      const folders = await storage.list('');
+      const folders = await storage.list('', { limit: LIST_LIMIT });
       if (folders.error) continue;
       for (const folder of folders.data ?? []) {
         const updated = folder.updated_at ? new Date(folder.updated_at) : new Date(0);
         if (updated >= cutoff) continue;
-        const files = await storage.list(folder.name);
+        const files = await storage.list(folder.name, { limit: LIST_LIMIT });
         if (files.error) continue;
         const paths = (files.data ?? []).map((f) => `${folder.name}/${f.name}`);
         if (paths.length > 0) {

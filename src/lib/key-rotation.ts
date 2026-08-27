@@ -27,7 +27,7 @@ export class KeyPool {
   }
 
   static create(keys: string[], opts?: { cooldownMs?: number }): KeyPool {
-    return new KeyPool({ keys, index: 0, cooldowns: {} }, opts);
+    return new KeyPool({ keys: keys.filter((k) => k.trim().length > 0), index: 0, cooldowns: {} }, opts);
   }
 
   get size(): number {

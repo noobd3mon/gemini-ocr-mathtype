@@ -66,14 +66,16 @@ export function renderMarkdownPreview(md: string, opts: PreviewOptions = {}): Pr
   html = html.replace(/<!--\s*Trang\s+(\d+)\s*-->/gi, (_, n: string) => stash(`<div class="page-mark">Trang ${n}</div>`));
 
   html = html.replace(/!\[([^\]]*)\]\((data:image\/[a-zA-Z0-9.+-]+;base64,[^)]+)\)/g, (_, alt: string, url: string) =>
-    stash(`<figure class="md-figure"><img src="${url}" alt="${escapeHtml(alt)}"><figcaption>${escapeHtml(alt)}</figcaption></figure>`),
+    stash(`<figure class="md-figure"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}"><figcaption>${escapeHtml(alt)}</figcaption></figure>`),
   );
 
   // Case-sensitive (uppercase IMAGE only) to stay consistent with parseImageMarkers in markers.ts.
   html = html.replace(/\[\[IMAGE\s*:\s*(\d+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:\|\s*([^\]]*?))?\]\]/g, (raw, page: string, x1: string, y1: string, x2: string, y2: string, caption: string) => {
-    const key = `${page}:${x1},${y1},${x2},${y2}`;
+    // Coerce to numbers so the key matches markerKey() (used when staging cut images),
+    // e.g. "200.0" from the model must resolve to the same key as 200.
+    const key = `${Number(page)}:${Number(x1)},${Number(y1)},${Number(x2)},${Number(y2)}`;
     const url = images.get(key) ?? images.get(raw);
-    if (url) return stash(`<figure class="md-figure"><img src="${url}" alt="${escapeHtml(caption || '')}"></figure>`);
+    if (url) return stash(`<figure class="md-figure"><img src="${escapeHtml(url)}" alt="${escapeHtml(caption || '')}"></figure>`);
     return stash(`<div class="img-marker">${escapeHtml(raw)}</div>`);
   });
 

@@ -38,6 +38,10 @@ export async function renderPdfToImages(
     canvas.height = Math.ceil(viewport.height);
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Không tạo được canvas render PDF.');
+    // White background: pdfjs leaves untouched pixels transparent, which would
+    // render as black blocks inside Word otherwise.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport }).promise;
     pages.push({
       pageNumber: i,

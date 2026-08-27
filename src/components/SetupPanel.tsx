@@ -72,7 +72,10 @@ export function SetupPanel({ settings, update }: Props) {
               min={0}
               value={settings.openaiMaxTokens ?? ''}
               placeholder="để trống = mặc định"
-              onChange={(e) => update({ openaiMaxTokens: e.target.value === '' ? null : Number(e.target.value) })}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                update({ openaiMaxTokens: e.target.value === '' || !Number.isFinite(n) ? null : n });
+              }}
             />
           </label>
         </>
@@ -85,7 +88,7 @@ export function SetupPanel({ settings, update }: Props) {
           min={1}
           max={200}
           value={settings.maxPages}
-          onChange={(e) => update({ maxPages: Number(e.target.value) })}
+          onChange={(e) => update({ maxPages: Math.max(1, Math.floor(Number(e.target.value)) || 1) })}
         />
       </label>
       <label className="field">

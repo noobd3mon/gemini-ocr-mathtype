@@ -30,4 +30,13 @@ describe('buildExportMarkdown', () => {
     const out = buildExportMarkdown(md2, new Map([[markerKey(marker), url]]));
     expect(out).toBe('![hình](data:image/png;base64,AAAA)');
   });
+
+  it('sanitizes brackets and newlines in alt text', () => {
+    // A parsed caption can contain "[" and newlines ("]" always terminates the marker).
+    const md2 = '[[IMAGE:1,10,20,30,40|Đồ thị [1\nmới]]';
+    const marker = parseImageMarkers(md2)[0];
+    expect(marker).toBeDefined();
+    const out = buildExportMarkdown(md2, new Map([[markerKey(marker), url]]));
+    expect(out).toBe(`![Đồ thị 1 mới](${url})`);
+  });
 });

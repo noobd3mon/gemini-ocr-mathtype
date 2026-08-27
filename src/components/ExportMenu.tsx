@@ -45,11 +45,13 @@ export function ExportMenu({ markdown, images, baseName, pandocUrl, mathTypeUrl,
       }
 
       if (!saved) {
+        const objUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
+        a.href = objUrl;
         a.download = filename;
         a.click();
-        URL.revokeObjectURL(a.href);
+        // Revoke later: revoking synchronously after click can cancel the download.
+        setTimeout(() => URL.revokeObjectURL(objUrl), 30_000);
         onStatus(`Đã tải ${filename}${mode === 'mathtype' ? ` (${converted} thành công, ${failed} lỗi)` : ''}.`);
       }
     } catch (err) {

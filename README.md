@@ -38,6 +38,13 @@ npm run dev
 3. Sửa Markdown nếu cần → xem trước KaTeX.
 4. "Xuất Word (Equation)" hoặc "Xuất Word (MathType)". File lưu server 3 ngày + tải về máy.
 
+## Giới hạn & hoạt động
+- **Gemini**: gửi cả file PDF trong 1 request — giới hạn ~14MB (đủ cho phần lớn tài liệu; file lớn hơn sẽ báo lỗi, hãy tách hoặc dùng chế độ OpenAI).
+- **OpenAI**: các trang được render thành ảnh rồi gửi theo **nhóm 4 trang/request** (prompt tự gắn số trang thật cho từng nhóm) để không vượt giới hạn body; kết quả các nhóm được ghép lại.
+- **Ảnh hình**: cắt từ trang đã render, nền trắng, chèn dạng base64 vào Markdown trước khi convert (đã kiểm chứng cả Pandoc và MathType server nhận data-URI).
+- **Bảo mật**: các API `/api/jobs*` không yêu cầu đăng nhập (công cụ cá nhân) — ai biết URL cũng tạo job được, nhưng chỉ đọc được file qua signed URL có hạn 3 ngày. Chạy Supabase free tier thì dung lượng bị giới hạn bởi quota của bạn.
+- **Cron dọn dẹp**: Vercel gọi `GET /api/cleanup` lúc 03:00 UTC hằng ngày, tự kèm `Authorization: Bearer <CRON_SECRET>`.
+
 ## Lưu trữ
 - `temp-images/`: ảnh cắt tạm, xóa sau khi xuất.
 - `word-exports/`: file Word, signed URL hết hạn sau 3 ngày, cron xóa file cũ.

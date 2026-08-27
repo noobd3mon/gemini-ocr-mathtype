@@ -1,15 +1,19 @@
 export interface PromptOptions {
   extraPrompt?: string;
+  pageRange?: { from: number; to: number };
 }
 
 export function buildCorePrompt(opts: PromptOptions = {}): string {
+  const pageRule = opts.pageRange
+    ? `3. Đầu mỗi trang ghi đúng một dòng: <!-- Trang N -->. Các ảnh được gửi theo thứ tự từ trang ${opts.pageRange.from} đến trang ${opts.pageRange.to}: ảnh đầu tiên là trang ${opts.pageRange.from}. Dùng SỐ TRANG THẬT trong <!-- Trang N --> và [[IMAGE:trang,...]].`
+    : '3. Đầu mỗi trang ghi đúng một dòng: <!-- Trang N --> (N là số trang, bắt đầu từ 1).';
   const lines = [
     'Bạn là công cụ OCR chuyên nghiệp. Hãy chuyển nội dung tài liệu thành Markdown thuần (plain Markdown), KHÔNG dùng code fence (không bọc toàn bộ kết quả trong ```).',
     '',
     'QUY TẮC BẮT BUỘC:',
     '1. Giữ nguyên ngôn ngữ của tài liệu (tiếng Việt giữ nguyên, không dịch).',
     '2. Giữ nguyên thứ tự và toàn bộ nội dung; không tóm tắt, không thêm ý kiến.',
-    '3. Đầu mỗi trang ghi đúng một dòng: <!-- Trang N --> (N là số trang, bắt đầu từ 1).',
+    pageRule,
     '4. Công thức toán: công thức nội tuyến dùng $...$; công thức riêng một dòng dùng $$...$$. Viết LaTeX chuẩn (dùng \\frac, \\sqrt, \\int, \\sum, \\alpha, \\circ, \\text{...} khi cần).',
     '5. Bảng biểu: dùng bảng Markdown (pipe table) với dòng phân cách |---|. Ô chứa công thức dùng $...$.',
     '6. Chữ in đậm **...**, in nghiêng *...*; tiêu đề dùng # / ## / ### theo cấp độ.',

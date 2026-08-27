@@ -6,6 +6,10 @@ interface Props {
   disabled?: boolean;
 }
 
+function isPdf(file: File): boolean {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
 export function Dropzone({ onFile, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -13,6 +17,9 @@ export function Dropzone({ onFile, disabled }: Props) {
   return (
     <div
       className={`dropzone${dragging ? ' dropzone--over' : ''}${disabled ? ' dropzone--disabled' : ''}`}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-label="Chọn file PDF"
       onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => {
@@ -20,14 +27,20 @@ export function Dropzone({ onFile, disabled }: Props) {
         setDragging(false);
         if (disabled) return;
         const f = e.dataTransfer.files[0];
-        if (f && f.type === 'application/pdf') onFile(f);
+        if (f && isPdf(f)) onFile(f);
       }}
       onClick={() => !disabled && inputRef.current?.click()}
+      onKeyDown={(e) => {
+        if (!disabled && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          inputRef.current?.click();
+        }
+      }}
     >
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf"
+        accept="application/pdf,.pdf"
         hidden
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ''; }}
       />

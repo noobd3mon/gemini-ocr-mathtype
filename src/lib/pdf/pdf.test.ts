@@ -42,6 +42,11 @@ describe('markerToPixelRect / clampRect', () => {
     expect(rect).toEqual({ x: 200, y: 240, w: 500, h: 1060 });
   });
 
+  it('normalizes reversed coordinates', () => {
+    const rev: ImageMarker = { page: 1, x1: 700, y1: 650, x2: 200, y2: 120, caption: '', raw: '' };
+    expect(markerToPixelRect(rev, 1000, 2000)).toEqual({ x: 200, y: 240, w: 500, h: 1060 });
+  });
+
   it('clamps out-of-bounds rects to page bounds', () => {
     const bad: ImageMarker = { page: 1, x1: -10, y1: -10, x2: 1200, y2: 5000, caption: '', raw: '' };
     const rect = markerToPixelRect(bad, 500, 500);

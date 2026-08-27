@@ -13,9 +13,13 @@ async function handle(req: NextRequest) {
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const svc = new JobsService(getSupabaseAdmin());
-  const removed = await svc.cleanupOld(Date.now(), 3 * 24 * 60 * 60 * 1000);
-  return NextResponse.json({ removed });
+  try {
+    const svc = new JobsService(getSupabaseAdmin());
+    const removed = await svc.cleanupOld(Date.now(), 3 * 24 * 60 * 60 * 1000);
+    return NextResponse.json({ removed });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  }
 }
 
 export async function GET(req: NextRequest) {

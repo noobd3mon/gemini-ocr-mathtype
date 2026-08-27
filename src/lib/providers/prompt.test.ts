@@ -31,4 +31,12 @@ describe('buildCorePrompt', () => {
     expect(withExtra).toContain('Giữ số thứ tự câu hỏi.');
     expect(withExtra).toContain('YÊU CẦU BỔ SUNG');
   });
+
+  it('adds real page-range instruction for batched image requests', () => {
+    const p = buildCorePrompt({ pageRange: { from: 5, to: 8 } });
+    expect(p).toContain('từ trang 5 đến trang 8');
+    expect(p).toContain('SỐ TRANG THẬT');
+    expect(p).toContain('<!-- Trang N -->');
+    expect(buildCorePrompt()).not.toContain('SỐ TRANG THẬT');
+  });
 });

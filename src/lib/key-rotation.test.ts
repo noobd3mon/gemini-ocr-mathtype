@@ -14,6 +14,12 @@ describe('KeyPool', () => {
     expect(pool.nextKey(1)).toBe('b');
   });
 
+  it('filters out empty keys on create', () => {
+    const pool = KeyPool.create(['', '   ', 'k1', 'k2']);
+    expect(pool.size).toBe(2);
+    expect([pool.nextKey(), pool.nextKey()]).toEqual(['k1', 'k2']);
+  });
+
   it('throws when all keys are cooled down or none exist', () => {
     const pool = KeyPool.create(['a']);
     pool.markRateLimited('a', 0);

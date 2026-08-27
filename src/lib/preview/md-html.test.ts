@@ -44,6 +44,18 @@ describe('renderMarkdownPreview', () => {
     expect(result.truncated).toBe(true);
   });
 
+  it('escapes quotes in data-uri src to block attribute injection', () => {
+    const { html } = renderMarkdownPreview('![x](data:image/png;base64,AAA" onerror="alert(1))');
+    expect(html).not.toContain('onerror="');
+    expect(html).toContain('onerror=&quot;');
+  });
+
+  it('matches staged image keys when the model emits decimal coords', () => {
+    const images = new Map([['1:200,120,700,650', 'data:image/png;base64,ZZZ']]);
+    const { html } = renderMarkdownPreview('[[IMAGE:1,200.0,120.0,700.0,650.0|Đồ thị]]', { images });
+    expect(html).toContain('src="data:image/png;base64,ZZZ"');
+  });
+
   it('preserves sub-question labels a) b) and A. B.', () => {
     const { html } = renderMarkdownPreview('a) Ý đầu\nb) Ý hai\n');
     expect(html).toContain('a)');

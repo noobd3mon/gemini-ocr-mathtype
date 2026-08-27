@@ -69,4 +69,44 @@ describe('ocrImagesWithOpenAI', () => {
   it('throws when baseUrl is missing', async () => {
     await expect(ocrImagesWithOpenAI({ pageImages: [], keys: ['k'], baseUrl: '  ', model: 'm' })).rejects.toThrow(/Base URL/);
   });
+
+  it('throws when there are no page images', async () => {
+    await expect(ocrImagesWithOpenAI({ pageImages: [], keys: ['k'], baseUrl: 'https://x.test', model: 'm' })).rejects.toThrow(/Không có ảnh/);
+  });
+
+  it('batches pages into grouped requests with real page numbers', async () => {
+    const bodies: { messages: { content: { type: string; text?: string }[] }[] }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      return jsonResponse({ choices: [{ message: { content: `md${bodies.length}` } }] });
+    }));
+    const images = Array.from({ length: 9 }, (_, i) => `data:image/png;base64,P${i + 1}`);
+    const result = await ocrImagesWithOpenAI({
+      pageImages: images, keys: ['k'], baseUrl: 'https://x.test', model: 'm', startPage: 5, pagesPerRequest: 4,
+    });
+    expect(bodies.length).toBe(3);
+    const texts = bodies.map((b) => b.messages[0].content[0].text ?? '');
+    expect(texts[0]).toContain('từ trang 5 đến trang 8');
+    expect(texts[1]).toContain('từ trang 9 đến trang 12');
+    expect(texts[2]).toContain('từ trang 13 đến trang 13');
+    const imgCounts = bodies.map(
+      (b) => b.messages[0].content.filter((c) => c.type === 'image_url').length,
+    );
+    expect(imgCounts).toEqual([4, 4, 1]);
+    expect(result).toBe('md1\n\nmd2\n\nmd3');
+  });
+
+  it('keeps a single request with the base prompt when pages fit one chunk', async () => {
+    const bodies: { messages: { content: { type: string; text?: string }[] }[] }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      return jsonResponse({ choices: [{ message: { content: 'ok' } }] });
+    }));
+    await ocrImagesWithOpenAI({
+      pageImages: ['data:image/png;base64,A', 'data:image/png;base64,B'],
+      keys: ['k'], baseUrl: 'https://x.test', model: 'm',
+    });
+    expect(bodies.length).toBe(1);
+    expect(bodies[0].messages[0].content[0].text).not.toContain('SỐ TRANG THẬT');
+  });
 });
