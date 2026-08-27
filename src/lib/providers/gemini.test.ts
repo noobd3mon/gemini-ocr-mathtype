@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ocrPdfWithGemini, buildModelChain } from './gemini';
+import { ocrPdfWithGemini, ocrPageImagesWithGemini, buildModelChain } from './gemini';
 import { KeyPoolExhaustedError } from '@/lib/key-rotation';
 import { GEMINI_MODELS } from '@/lib/settings-store';
 
@@ -135,5 +135,54 @@ describe('ocrPdfWithGemini model fallback', () => {
       ocrPdfWithGemini({ pdfBase64: 'UERG', keys: ['k1'], model: 'gemini-3.7-flash' }),
     ).rejects.toThrow(/401/);
     expect(calls).toBe(1);
+  });
+});
+
+describe('ocrPageImagesWithGemini', () => {
+  const dataUrl = (b: string) => `data:image/png;base64,${b}`;
+
+  it('sends inline images with a single request and no page-range note when it fits one chunk from page 1', async () => {
+    const bodies: { contents: { parts: ({ text: string } | { inlineData: { mimeType: string; data: string } })[] }[] }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      return jsonResponse({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] });
+    }));
+    const result = await ocrPageImagesWithGemini({
+      pageImages: [dataUrl('AAA'), dataUrl('BBB')],
+      keys: ['k1'], model: 'gemini-3.7-flash',
+    });
+    expect(result).toBe('ok');
+    expect(bodies).toHaveLength(1);
+    const parts = bodies[0].contents[0].parts;
+    expect(parts[0]).toEqual({ text: expect.stringContaining('[[IMAGE:') });
+    expect(parts[1]).toEqual({ inlineData: { mimeType: 'image/png', data: 'AAA' } });
+    expect(parts[2]).toEqual({ inlineData: { mimeType: 'image/png', data: 'BBB' } });
+    expect((parts[0] as { text: string }).text).not.toContain('SỐ TRANG THẬT');
+  });
+
+  it('batches images with real page numbers when exceeding pagesPerRequest', async () => {
+    const bodies: { contents: { parts: { text?: string; inlineData?: { data: string } }[] }[] }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      return jsonResponse({ candidates: [{ content: { parts: [{ text: `md${bodies.length}` }] } }] });
+    }));
+    const images = Array.from({ length: 5 }, (_, i) => dataUrl(`P${i + 1}`));
+    const result = await ocrPageImagesWithGemini({
+      pageImages: images, keys: ['k1'], model: 'gemini-3.7-flash', startPage: 3, pagesPerRequest: 2,
+    });
+    expect(bodies).toHaveLength(3);
+    const texts = bodies.map((b) => b.contents[0].parts[0].text ?? '');
+    expect(texts[0]).toContain('từ trang 3 đến trang 4');
+    expect(texts[1]).toContain('từ trang 5 đến trang 6');
+    expect(texts[2]).toContain('từ trang 7 đến trang 7');
+    const inlineCounts = bodies.map((b) => b.contents[0].parts.filter((p) => p.inlineData).length);
+    expect(inlineCounts).toEqual([2, 2, 1]);
+    expect(result).toBe('md1\n\nmd2\n\nmd3');
+  });
+
+  it('throws when there are no images', async () => {
+    await expect(
+      ocrPageImagesWithGemini({ pageImages: [], keys: ['k'], model: 'gemini-3.7-flash' }),
+    ).rejects.toThrow(/Không có ảnh/);
   });
 });

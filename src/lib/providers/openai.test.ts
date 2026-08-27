@@ -81,8 +81,10 @@ describe('ocrImagesWithOpenAI', () => {
       return jsonResponse({ choices: [{ message: { content: `md${bodies.length}` } }] });
     }));
     const images = Array.from({ length: 9 }, (_, i) => `data:image/png;base64,P${i + 1}`);
+    const batches: { from: number; to: number; markdown: string }[] = [];
     const result = await ocrImagesWithOpenAI({
       pageImages: images, keys: ['k'], baseUrl: 'https://x.test', model: 'm', startPage: 5, pagesPerRequest: 4,
+      onBatch: (b) => batches.push(b),
     });
     expect(bodies.length).toBe(3);
     const texts = bodies.map((b) => b.messages[0].content[0].text ?? '');
@@ -94,6 +96,11 @@ describe('ocrImagesWithOpenAI', () => {
     );
     expect(imgCounts).toEqual([4, 4, 1]);
     expect(result).toBe('md1\n\nmd2\n\nmd3');
+    expect(batches).toEqual([
+      { from: 5, to: 8, markdown: 'md1' },
+      { from: 9, to: 12, markdown: 'md2' },
+      { from: 13, to: 13, markdown: 'md3' },
+    ]);
   });
 
   it('keeps a single request with the base prompt when pages fit one chunk', async () => {

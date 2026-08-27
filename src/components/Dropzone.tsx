@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 
 interface Props {
-  onFile: (file: File) => void;
+  onFiles: (files: File[]) => void;
   disabled?: boolean;
 }
 
@@ -10,9 +10,15 @@ function isPdf(file: File): boolean {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 }
 
-export function Dropzone({ onFile, disabled }: Props) {
+export function Dropzone({ onFiles, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+
+  const pick = (list: FileList | null) => {
+    if (!list) return;
+    const pdfs = Array.from(list).filter(isPdf);
+    if (pdfs.length > 0) onFiles(pdfs);
+  };
 
   return (
     <div
@@ -26,8 +32,7 @@ export function Dropzone({ onFile, disabled }: Props) {
         e.preventDefault();
         setDragging(false);
         if (disabled) return;
-        const f = e.dataTransfer.files[0];
-        if (f && isPdf(f)) onFile(f);
+        pick(e.dataTransfer.files);
       }}
       onClick={() => !disabled && inputRef.current?.click()}
       onKeyDown={(e) => {
@@ -41,10 +46,11 @@ export function Dropzone({ onFile, disabled }: Props) {
         ref={inputRef}
         type="file"
         accept="application/pdf,.pdf"
+        multiple
         hidden
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ''; }}
+        onChange={(e) => { pick(e.target.files); e.target.value = ''; }}
       />
-      <span>Kéo thả file PDF vào đây, hoặc nhấn để chọn.</span>
+      <span>Kéo thả file PDF vào đây (một hoặc nhiều), hoặc nhấn để chọn.</span>
     </div>
   );
 }

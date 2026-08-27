@@ -26,3 +26,12 @@ export async function fileToDataUrl(file: File): Promise<string> {
   const base64 = arrayBufferToBase64(await file.arrayBuffer());
   return `data:${file.type || 'image/png'};base64,${base64}`;
 }
+
+export function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Không đọc được ảnh.'));
+    reader.readAsDataURL(blob);
+  });
+}

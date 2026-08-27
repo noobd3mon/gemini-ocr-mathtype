@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { bytesToArrayBuffer } from './base64';
+import { arrayBufferToBase64, bytesToArrayBuffer } from './base64';
+import { isOcrJobState, type OcrJobState } from './ocr-job-state';
 
 export const SIGNED_URL_TTL = 3 * 24 * 60 * 60; // 3 ngày (giây)
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -70,6 +71,78 @@ export class JobsService {
     return url;
   }
 
+  // ===== OCR jobs chạy trên server (bucket ocr-jobs) =====
+
+  /** Đọc ảnh trang (temp-images, client upload) thành data URL cho bước OCR server. */
+  async getPageDataUrl(jobId: string, page: number): Promise<string> {
+    const dl = await this.supabase.storage.from('temp-images').download(`${jobId}/${page}.png`);
+    if (dl.error || !dl.data) throw new Error(`Không đọc được ảnh trang ${page + 1} (hãy thử chạy lại job).`);
+    const bytes = new Uint8Array(await dl.data.arrayBuffer());
+    return `data:image/png;base64,${arrayBufferToBase64(bytesToArrayBuffer(bytes))}`;
+  }
+
+  /** Cấp batch signed URL cho client tải các trang đã upload (để cắt ảnh sau khi job xong). */
+  async getPageSignedUrls(jobId: string, pageCount: number): Promise<string[]> {
+    const paths = Array.from({ length: pageCount }, (_, n) => `${jobId}/${n}.png`);
+    const signed = await this.supabase.storage.from('temp-images').createSignedUrls(paths, SIGNED_URL_TTL);
+    if (signed.error || !signed.data) throw new Error('Không tạo được signed URL cho các trang.');
+    return signed.data
+      .map((s) => s.signedUrl)
+      .filter((u): u is string => typeof u === 'string' && u.length > 0);
+  }
+
+  async getOcrJobState(jobId: string): Promise<OcrJobState | null> {
+    const dl = await this.supabase.storage.from('ocr-jobs').download(`${jobId}/state.json`);
+    if (dl.error || !dl.data) return null;
+    try {
+      const raw = JSON.parse(new TextDecoder().decode(await dl.data.arrayBuffer()));
+      return isOcrJobState(raw) ? raw : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async putOcrJobState(jobId: string, state: OcrJobState): Promise<void> {
+    const { error } = await this.supabase.storage.from('ocr-jobs').upload(`${jobId}/state.json`, JSON.stringify(state), {
+      contentType: 'application/json',
+      upsert: true,
+    });
+    if (error) throw new Error(`Lưu trạng thái job thất bại (${jobId}): ${error.message}`);
+  }
+
+  async deleteOcrJob(jobId: string): Promise<void> {
+    const bucket = this.supabase.storage.from('ocr-jobs');
+    const list = await bucket.list(jobId, { limit: LIST_LIMIT });
+    if (list.error) throw new Error(`Không liệt kê được ocr-jobs (${jobId}).`);
+    const paths = (list.data ?? []).map((f) => `${jobId}/${f.name}`);
+    if (paths.length === 0) return;
+    const { error } = await bucket.remove(paths);
+    if (error) throw new Error(`Không xóa được job (${jobId}): ${error.message}`);
+  }
+
+  /**
+   * Xoá key API khỏi các job còn ở trạng thái chạy nhưng đã quá hạn không có
+   * cập nhật (tab đóng giữa chừng, chain đứt...) — key không bao giờ ở lại server.
+   * Trả về số job đã quét key.
+   */
+  async scrubStaleJobKeys(now: number, maxAgeMs: number): Promise<number> {
+    const bucket = this.supabase.storage.from('ocr-jobs');
+    const folders = await bucket.list('', { limit: LIST_LIMIT });
+    if (folders.error) return 0;
+    let scrubbed = 0;
+    for (const folder of folders.data ?? []) {
+      const state = await this.getOcrJobState(folder.name);
+      if (!state) continue;
+      const active = state.status === 'queued' || state.status === 'running';
+      if (active && state.keys && state.keys.length > 0 && now - state.updatedAt > maxAgeMs) {
+        state.keys = [];
+        await this.putOcrJobState(folder.name, state);
+        scrubbed += 1;
+      }
+    }
+    return scrubbed;
+  }
+
   async getDownloadUrl(jobId: string, fileName: string, bucket = 'word-exports'): Promise<string> {
     const signed = await this.supabase.storage.from(bucket).createSignedUrl(`${jobId}/${fileName}`, SIGNED_URL_TTL);
     if (signed.error || !signed.data?.signedUrl) throw new Error('File Word đã hết hạn hoặc không tồn tại.');
@@ -89,7 +162,7 @@ export class JobsService {
   async cleanupOld(now: number, maxAgeMs: number): Promise<number> {
     const cutoff = new Date(now - maxAgeMs);
     let removed = 0;
-    for (const bucketName of ['temp-images', 'word-exports']) {
+    for (const bucketName of ['temp-images', 'word-exports', 'ocr-jobs']) {
       const storage = this.supabase.storage.from(bucketName);
       const folders = await storage.list('', { limit: LIST_LIMIT });
       if (folders.error) continue;

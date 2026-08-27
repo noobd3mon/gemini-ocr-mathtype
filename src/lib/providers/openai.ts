@@ -12,6 +12,8 @@ export interface OpenAIOcrOptions {
   startPage?: number;
   /** Số ảnh tối đa gửi trong một request (mặc định 4) — chia nhóm để tránh body quá lớn. */
   pagesPerRequest?: number;
+  /** Gọi sau mỗi nhóm trang hoàn tất — dùng để lưu tiến độ và cho phép resume. */
+  onBatch?: (batch: { from: number; to: number; markdown: string }) => void;
   onProgress?: (msg: string) => void;
   onRotated?: (info: { key: string; attempts: number }) => void;
 }
@@ -78,6 +80,7 @@ export async function ocrImagesWithOpenAI(opts: OpenAIOcrOptions): Promise<strin
       { onRotated: opts.onRotated },
     );
     parts.push(out);
+    opts.onBatch?.({ from, to, markdown: out });
     if (chunks.length > 1) {
       opts.onProgress?.(`Đã OCR xong nhóm ${ci + 1}/${chunks.length} (trang ${from}-${to}).`);
     }

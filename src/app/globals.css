@@ -62,3 +62,23 @@ textarea { resize: vertical; }
 
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
+
+.hint { color: var(--mut); font-size: 0.8rem; margin: 8px 0; line-height: 1.5; }
+.task-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.task-row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 0.88rem; }
+.task-row--running { border-color: var(--acc); }
+.task-row--done { border-color: var(--ok); }
+.task-row--error { border-color: var(--err); }
+.task-row--open { outline: 1px solid var(--acc); }
+.task-main { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.task-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+.task-status { font-size: 0.76rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--mut); }
+.task-status--running { border-color: var(--acc); color: var(--acc); }
+.task-status--done { border-color: var(--ok); color: var(--ok); }
+.task-status--error { border-color: var(--err); color: var(--err); }
+.task-error { color: var(--err); }
+.task-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.task-actions .small { padding: 4px 10px; font-size: 0.78rem; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); border-radius: 6px; }
+.task-actions .small:hover { border-color: var(--acc); }

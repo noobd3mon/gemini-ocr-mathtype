@@ -1,25 +1,25 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useSettings } from '@/hooks/useSettings';
+import { useOcrJobs, type OcrJobView } from '@/hooks/useOcrJobs';
 import { SetupPanel } from '@/components/SetupPanel';
 import { Dropzone } from '@/components/Dropzone';
 import { StatsBar } from '@/components/StatsBar';
+import { TaskList } from '@/components/TaskList';
 import { EditorPane } from '@/components/EditorPane';
 import { PreviewPane } from '@/components/PreviewPane';
 import { ExportMenu } from '@/components/ExportMenu';
-import { runOcrGemini, runOcrOpenAI, stageImages } from '@/lib/orchestrate';
 import { countCharacters, countPages, countFormulas, countDataUriImages, parseImageMarkers } from '@/lib/markdown/markers';
-import { renderPdfToImages, computeRenderScale } from '@/lib/pdf/render-pages';
 
 export default function Home() {
   const { settings, update } = useSettings();
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const { jobs, uploading, status, setStatus, enqueueFiles, openResult, cancelJob, deleteJob } = useOcrJobs();
+  const [openId, setOpenId] = useState<string | null>(null);
   const [markdown, setMarkdown] = useState('');
   const [images, setImages] = useState<Map<string, string>>(new Map());
-  const [status, setStatus] = useState('');
-  const [busy, setBusy] = useState(false);
   const [pandocUrl, setPandocUrl] = useState('https://pandoc-server.onrender.com/convert');
   const [mathTypeUrl, setMathTypeUrl] = useState('https://latex2mathtypeweb.onrender.com');
+  const [busy, setBusy] = useState(false);
 
   // Fetch runtime config once on mount
   useEffect(() => {
@@ -43,37 +43,27 @@ export default function Home() {
     [markdown, markers],
   );
 
-  async function runOcr() {
-    if (!pdfFile) return;
-    if (settings.provider === 'gemini' && settings.geminiKeys.filter((k) => k.trim()).length === 0) { setStatus('Nhập ít nhất một Gemini API key.'); return; }
-    if (settings.provider === 'openai' && settings.openaiKeys.filter((k) => k.trim()).length === 0) { setStatus('Nhập ít nhất một OpenAI API key.'); return; }
-    setBusy(true); setStatus('');
+  async function handleFiles(files: File[]) {
+    setBusy(true);
+    await enqueueFiles(files, settings);
+    setBusy(false);
+  }
+
+  async function handleOpen(job: OcrJobView) {
+    setBusy(true);
+    setStatus(`Đang tải kết quả ${job.fileName}...`);
     try {
-      let md: string;
-      let pageImages: { pageNumber: number; dataUrl: string }[] = [];
-      if (settings.provider === 'gemini') {
-        md = await runOcrGemini(pdfFile, settings, setStatus);
+      const result = await openResult(job);
+      if (result) {
+        setMarkdown(result.markdown);
+        setImages(result.images);
+        setOpenId(job.id);
+        setStatus('Đã mở kết quả — có thể sửa Markdown rồi xuất Word.');
       } else {
-        const r = await runOcrOpenAI(pdfFile, settings, setStatus);
-        md = r.markdown; pageImages = r.pageImages;
+        setStatus('Kết quả trống.');
       }
-      setMarkdown(md);
-      const ms = parseImageMarkers(md);
-      if (ms.length > 0) {
-        if (pageImages.length === 0 && settings.provider === 'gemini') {
-          const pages = await renderPdfToImages(await pdfFile.arrayBuffer(), {
-            scale: computeRenderScale(settings.renderScale),
-            maxPages: settings.maxPages,
-          });
-          pageImages = pages.map((p) => ({ pageNumber: p.pageNumber, dataUrl: p.dataUrl }));
-        }
-        setStatus(`Đang cắt ${ms.length} ảnh từ ${pageImages.length} trang...`);
-        const { images: staged } = await stageImages(md, pageImages);
-        setImages(staged);
-      }
-      setStatus('OCR hoàn tất.');
     } catch (err) {
-      setStatus(`Lỗi: ${(err as Error).message}`);
+      setStatus(`Không mở được kết quả: ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -83,17 +73,22 @@ export default function Home() {
     <main className="app">
       <header className="app-header">
         <h1>OCR PDF → Word</h1>
-        <p className="subtitle">Gemini / OpenAI · Pandoc · MathType · Supabase</p>
+        <p className="subtitle">Gemini / OpenAI · chạy nền trên server · Pandoc · MathType · Supabase</p>
       </header>
       <div className="layout">
         <SetupPanel settings={settings} update={update} />
         <section className="panel work-panel">
           <h2>Tài liệu</h2>
-          <Dropzone onFile={setPdfFile} disabled={busy} />
-          {pdfFile && <p className="file-name">{pdfFile.name} ({(pdfFile.size / 1024).toFixed(0)} KB)</p>}
-          <div className="actions">
-            <button type="button" disabled={busy || !pdfFile} onClick={runOcr}>{busy ? 'Đang xử lý...' : 'Chạy OCR'}</button>
-          </div>
+          <Dropzone onFiles={handleFiles} disabled={busy} />
+          <p className="hint">Task chạy trên server — sau khi upload xong (mỗi file hiện dòng “upload…/trang”) bạn có thể đóng tab hoặc rời đi; quay lại là thấy tiến độ. Tab đang mở sẽ có âm thanh + thông báo khi xong.</p>
+          <TaskList
+            jobs={jobs}
+            uploading={uploading}
+            openId={openId}
+            onOpen={handleOpen}
+            onCancel={(id) => { void cancelJob(id); }}
+            onDelete={(id) => { void deleteJob(id); if (openId === id) { setOpenId(null); setMarkdown(''); setImages(new Map()); } }}
+          />
           <StatsBar {...stats} />
           <p className="status">{status}</p>
           {markdown && (

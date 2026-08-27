@@ -10,6 +10,12 @@ insert into storage.buckets (id, name, public)
 values ('word-exports', 'word-exports', false)
 on conflict (id) do nothing;
 
+-- ocr-jobs: trạng thái job OCR chạy trên server (state.json). Key API chỉ tồn tại
+-- trong state khi job đang chạy; xóa ngay khi done/error/cancel, cron quét dọn job treo.
+insert into storage.buckets (id, name, public)
+values ('ocr-jobs', 'ocr-jobs', false)
+on conflict (id) do nothing;
+
 -- RLS: deny all client (anon) access. Server uses service-role key (bypasses RLS).
 alter table storage.objects enable row level security;
 
@@ -20,3 +26,7 @@ create policy "deny_anon_temp_images" on storage.objects
 drop policy if exists "deny_anon_word_exports" on storage.objects;
 create policy "deny_anon_word_exports" on storage.objects
   for all using (bucket_id = 'word-exports' and false) with check (bucket_id = 'word-exports' and false);
+
+drop policy if exists "deny_anon_ocr_jobs" on storage.objects;
+create policy "deny_anon_ocr_jobs" on storage.objects
+  for all using (bucket_id = 'ocr-jobs' and false) with check (bucket_id = 'ocr-jobs' and false);

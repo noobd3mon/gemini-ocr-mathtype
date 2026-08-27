@@ -137,16 +137,17 @@
     <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">1</span>Giới thiệu &amp; cách hoạt động</h2>
     <p>Ứng dụng gồm 2 nửa:</p>
     <ul>
-      <li><b>Phía trình duyệt (làm việc nặng):</b> gửi thẳng file PDF tới Gemini <i>hoặc</i> render từng trang PDF thành ảnh rồi gửi tới API tương thích OpenAI. Toàn bộ API key của bạn <b>chỉ nằm trong trình duyệt</b> (localStorage), không đi qua server của app.</li>
-      <li><b>Phía server (Vercel + Supabase):</b> lưu file Word đã xuất vào Supabase Storage 3 ngày, cấp link tải (signed URL) và tự dọn dẹp hàng ngày bằng cron.</li>
+      <li><b>Chuẩn bị task (trong trình duyệt):</b> render từng trang PDF thành ảnh rồi upload lên Supabase, đồng thời tạo task kèm API key của bạn.</li>
+      <li><b>OCR chạy trên server (dạng task nền):</b> server đọc các trang đã upload, gọi Gemini/OpenAI theo từng nhóm 2 trang nối tiếp nhau (mỗi bước là một function độc lập, luôn gọn giới hạn 60s). <b>Bạn có thể đóng tab hoàn toàn</b> sau khi upload xong — quay lại là thấy tiến độ/kết quả.</li>
     </ul>
+    <div class="box okbox"><b>Key API của bạn an toàn thế nào khi chạy trên server?</b> Key được đưa vào state của job (bucket <code>ocr-jobs</code> riêng tư, chỉ service-role đọc được) <b>chỉ trong lúc job chạy</b> — bị xoá ngay lập tức khi job xong / lỗi / huỷ. Cron hằng ngày còn quét dọn key của job treo quá 2 giờ và xoá toàn bộ job cũ sau 3 ngày. Key không bao giờ được trả về trình duyệt trong các API trạng thái.</div>
     <p>Luồng xử lý một file PDF:</p>
     <ol>
-      <li>Bạn kéo-thả PDF → bấm <b>Chạy OCR</b>.</li>
-      <li>Model AI đọc tài liệu, trả về Markdown: công thức dạng <code>$...$</code> / <code>$$...$$</code> (LaTeX), bảng dạng pipe table, và đánh dấu vị trí hình vẽ bằng marker <code>[[IMAGE:trang,x1,y1,x2,y2|chú thích]]</code>.</li>
-      <li>App tự cắt đúng vùng hình từ trang đã render (toạ độ phần nghìn, nền trắng), nhúng ảnh vào Markdown.</li>
-      <li>Bạn sửa Markdown nếu muốn, xem trước trực tiếp (công thức render bằng KaTeX).</li>
-      <li>Bấm xuất Word → chọn <b>Equation (OMML)</b> qua server Pandoc hoặc <b>MathType (OLE)</b> qua server MathType → file tải về máy và đồng thời được lưu trên server 3 ngày.</li>
+      <li>Bạn kéo-thả PDF (một hoặc nhiều file) → app render + upload các trang, tạo task.</li>
+      <li>Server OCR từng nhóm trang, tự nối bước, tự rotate key khi bị giới hạn, Gemini tự lùi model 3.7 → 3.6 → 3.5 khi hết hạn mức.</li>
+      <li>Bạn đi làm việc khác. Tab còn mở: có âm thanh + thông báo desktop khi xong. Tab đã đóng: mở lại app là thấy task “Xong ✓”.</li>
+      <li>Bấm <b>Mở kết quả</b> → Markdown + hình được cắt từ các trang đã render, xem trước bằng KaTeX, sửa nếu muốn.</li>
+      <li>Bấm xuất Word → chọn <b>Equation (OMML)</b> (máy chủ Pandoc tích hợp) hoặc <b>MathType (OLE)</b> → file tải về máy và lưu trên server 3 ngày.</li>
     </ol>
     <div class="box note"><b>Nhiều API key, tự xoay vòng:</b> dán nhiều key (mỗi dòng một key). Khi một key bị giới hạn tốc độ (429/quota), app tự chuyển sang key kế tiếp và làm lại — bạn không phải bấm lại gì cả. Hết sạch key ở model đang dùng, app còn tự hạ model Gemini (<code>3.7 → 3.6 → 3.5</code>) rồi thử lại với nguyên các key đó.</div>
   </section>
@@ -208,7 +209,7 @@
       <li>Kết quả <span class="mut">(“Success. No rows returned” là đúng)</span>. Script đã tạo 2 bucket <b>private</b> là <code>temp-images</code> và <code>word-exports</code> + khoá toàn bộ truy cập từ ngoài (RLS deny-all) — chỉ server của bạn với key service_role mới đọc/ghi được.</li>
       <li>Chạy lại script nhiều lần cũng không sao (an toàn, có <code>on conflict do nothing</code>).</li>
     </ol>
-    <div class="box warn"><b>Kiểm tra nhanh:</b> vào <i>Storage</i> trên menu trái, phải thấy 2 bucket <code>temp-images</code> và <code>word-exports</code>, biểu tượng có dấu khoá (Private). Nếu thiếu, chạy lại script.</div>
+    <div class="box warn"><b>Kiểm tra nhanh:</b> vào <i>Storage</i> trên menu trái, phải thấy 3 bucket <code>temp-images</code>, <code>word-exports</code> và <code>ocr-jobs</code>, biểu tượng có dấu khoá (Private). Nếu thiếu (ví dụ bản cũ chỉ có 2), chạy lại script — an toàn, không mất dữ liệu cũ.</div>
 
     <h3>3.3. Lấy 2 thông tin cần thiết</h3>
     <ol>
@@ -317,12 +318,14 @@ npm run dev</code></pre>
       <li><b>Tên file xuất</b>: phần tên của file Word, không dấu. Mặc định <code>tai_lieu_ocr</code> → file ra là <code>tai_lieu_ocr_equation.docx</code> hoặc <code>tai_lieu_ocr_mathtype.docx</code>.</li>
     </ol>
 
-    <h3>6.3. Chạy OCR</h3>
+    <h3>6.3. Chạy OCR dạng task nền</h3>
     <ol>
-      <li>Kéo file PDF vào vùng thả (hoặc bấm vào vùng đó để chọn file).</li>
-      <li>Bấm <b>Chạy OCR</b>. Dòng trạng thái sẽ cập nhật liên tục: <span class="mut">“Đang đọc PDF…” → “Đang gửi PDF tới gemini-3.5-flash…” → (nếu bị giới hạn) “Rate-limited — chuyển key (lần 1)…” → “Đang cắt N ảnh từ M trang…” → “OCR hoàn tất.”</span></li>
-      <li>Khi xong: khung trái là <b>Markdown thô</b> (sửa được trực tiếp), khung phải là <b>xem trước</b> — công thức render bằng KaTeX, bảng có viền, hình đã cắt hiện ngay tại chỗ. Thanh số liệu cho biết tổng kí tự / số trang / số công thức / số ảnh.</li>
+      <li>Kéo file PDF vào vùng thả (một hoặc nhiều file cùng lúc). Mỗi file trở thành một <b>task</b> trong danh sách.</li>
+      <li>Chờ app render + upload các trang: dòng task hiện <span class="mut">“⏫ tên-file — đang render + upload…”</span>, dòng trạng thái đếm từng trang. Upload xong → task chuyển sang <b>Đang chờ / Đang chạy</b> — <b>từ đây bạn có thể đóng tab</b>, server tự chạy tiếp.</li>
+      <li>Server OCR từng nhóm 2 trang nối tiếp (task hiện <span class="mut">“Đang chạy · nhóm 3/15 — Đang OCR trang 5-6…”</span>). Bị giới hạn tốc độ → tự chuyển key; hết hạn mức ở model đang dùng → Gemini tự lùi 3.7 → 3.6 → 3.5.</li>
+      <li>Khi task <b>Xong ✓</b>: bấm <b>Mở kết quả</b> → khung trái là Markdown thô (sửa trực tiếp), khung phải là xem trước KaTeX với hình đã cắt. Thanh số liệu cho biết tổng kí tự / trang / công thức / ảnh.</li>
     </ol>
+    <div class="box note"><b>Đi làm việc khác trong lúc OCR:</b> tab còn mở (kể cả thu nhỏ/chuyển tab khác) → khi task xong bạn nghe <b>tiếng “ting”</b> và nhận <b>thông báo desktop</b>; tiêu đề tab hiện số task đang chạy. Tab đã đóng hoàn toàn → mở lại app, danh sách task vẫn đó với đúng tiến độ (server tự nối bước, tự “hồi sinh” task đứt kết nối). Lưu ý: giai đoạn <i>render + upload</i> (vài chục giây đến vài phút tuỳ số trang) vẫn cần tab mở.</div>
     <div class="box note"><b>Kiểu chữ trong Markdown:</b> <code>[[IMAGE:...]]</code> màu nhạt là marker hình chưa cắt được (trang vượt số trang tối đa hoặc toạ độ sai) — chúng sẽ bị bỏ qua khi xuất Word. Bài toán/quảng cáo dư thừa bạn có thể xoá trực tiếp trong khung Markdown trước khi xuất.</div>
 
     <h3>6.4. Xuất Word</h3>
@@ -434,10 +437,18 @@ npm run dev</code></pre>
 │   ├── layout.tsx  globals.css  # Khung trang + theme
 │   └── api/
 │       ├── config/              # GET  — cấu hình public cho client
-│       ├── jobs/                # POST — tạo mã job
-│       ├── jobs/[id]/finalize/  # POST — lưu Word + xoá ảnh tạm
+│       ├── pandoc/              # POST — máy chủ Pandoc tích hợp (binary chạy trong function)
+│       ├── jobs/                # POST — tạo mã job upload/Word
+│       ├── jobs/[id]/finalize/  # POST — lưu Word (1 request hoặc ghép parts)
+│       ├── jobs/[id]/finalize-part/ # POST — upload 1 phần của file Word lớn
 │       ├── jobs/[id]/           # GET  — cấp lại link tải
-│       ├── jobs/[id]/upload-urls/ # POST — upload ảnh tạm (dự phòng)
+│       ├── jobs/[id]/upload-urls/ # POST — upload ảnh (trang PDF / ảnh cắt)
+│       ├── ocr-jobs/            # POST — tạo task OCR chạy trên server (kèm key tạm thời)
+│       ├── ocr-jobs/[id]/       # GET trạng thái (tự hồi sinh chain) · DELETE xoá task
+│       ├── ocr-jobs/[id]/start/ # POST — kích hoạt sau khi upload xong
+│       ├── ocr-jobs/[id]/step/  # POST — 1 bước: OCR 2 trang rồi tự nối bước kế
+│       ├── ocr-jobs/[id]/cancel/   # POST — huỷ + xoá key ngay
+│       ├── ocr-jobs/[id]/page-urls/ # GET — signed URL các trang đã upload
 │       └── cleanup/             # GET/POST — cron dọn dẹp (Bearer CRON_SECRET)
 ├── components/                  # SetupPanel, KeysEditor, Dropzone, StatsBar,
 │                                # EditorPane, PreviewPane, ExportMenu
@@ -457,7 +468,8 @@ vercel.json                      # Cron dọn dẹp 03:00 UTC hằng ngày
 
     <h3>Bảo mật — những gì app đảm bảo</h3>
     <ul class="checklist">
-      <li><b>API key của người dùng chỉ nằm trong trình duyệt</b> (localStorage) — request tới Gemini/OpenAI đi thẳng từ trình duyệt, không qua server app, không bị ghi lại.</li>
+      <li><b>Key API trên server chỉ mang tính tạm thời</b>: key nằm trong state của job (bucket <code>ocr-jobs</code> private, chỉ service-role đọc được) trong lúc job chạy, và bị <b>xoá ngay khi job xong / lỗi / huỷ</b>. Cron hằng ngày quét xoá key của job treo quá 2 giờ và xoá toàn bộ job cũ sau 3 ngày. Các API trạng thái không bao giờ trả key về trình duyệt.</li>
+      <li><b>Chỉ có server gọi Gemini/OpenAI</b> (từ bản task nền) — key không được nhúng vào bundle JavaScript.</li>
       <li><b><code>service_role</code> key chỉ tồn tại trên server</b> (biến môi trường) — đã kiểm chứng không xuất hiện trong bundle JavaScript gửi xuống trình duyệt.</li>
       <li><b>Bucket Supabase private + RLS khoá toàn bộ</b> — ngoài server không ai truy cập trực tiếp được; tải file chỉ qua signed URL sống tối đa 3 ngày.</li>
       <li><b>Cron endpoint yêu cầu secret</b> — không ai gọi tay xoá dữ liệu của bạn được.</li>
@@ -472,6 +484,8 @@ vercel.json                      # Cron dọn dẹp 03:00 UTC hằng ngày
       <tr><td>OpenAI — số trang mỗi request</td><td>4 trang (điều chỉnh được qua <code>pagesPerRequest</code> trong code)</td></tr>
       <tr><td>Số trang OCR tối đa / lần</td><td>200 (mặc định 30)</td></tr>
       <tr><td>Lưu file Word trên server</td><td>3 ngày (signed URL 3 ngày + cron dọn lúc 03:00 UTC)</td></tr>
+      <tr><td>OCR nền trên server</td><td>Từng nhóm <b>2 trang/bước</b>, mỗi bước ≤ 60s, tự nối bước; tối đa 200 trang/job. Tab có thể đóng sau khi upload xong.</td></tr>
+      <tr><td>Key API trên server</td><td>Chỉ trong lúc job chạy — xoá khi done/error/cancel; cron quét key job treo sau <b>2 giờ</b>; xoá toàn bộ job sau 3 ngày.</td></tr>
       <tr><td>Gemini — tự lùi model khi hết hạn mức</td><td><code>gemini-3.7-flash</code> → <code>gemini-3.6-flash</code> → <code>gemini-3.5-flash</code> (dùng lại nguyên các key; chỉ lùi khi <b>tất cả</b> key đều bị giới hạn, hoặc model trả 404)</td></tr>
       <tr><td>Cool-down khi key bị 429</td><td>60 giây rồi tự đưa key trở lại vòng xoay</td></tr>
       <tr><td>Xuất Equation — giới hạn ký tự</td><td><b>Không giới hạn</b> (máy chủ Pandoc tích hợp; đã kiểm thử 2 triệu ký tự). Ảnh truyền qua Supabase signed URL nên payload luôn nhỏ. Server dự phòng bên ngoài giới hạn 1 triệu ký tự.</td></tr>

@@ -16,7 +16,9 @@ async function handle(req: NextRequest) {
   try {
     const svc = new JobsService(getSupabaseAdmin());
     const removed = await svc.cleanupOld(Date.now(), 3 * 24 * 60 * 60 * 1000);
-    return NextResponse.json({ removed });
+    // Quét key API khỏi các job OCR "treo" quá 2 giờ — key không bao giờ ở lại server.
+    const scrubbed = await svc.scrubStaleJobKeys(Date.now(), 2 * 60 * 60 * 1000);
+    return NextResponse.json({ removed, scrubbed });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
