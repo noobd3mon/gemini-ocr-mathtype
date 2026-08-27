@@ -2,6 +2,8 @@
 
 OCR tài liệu PDF sang Markdown (Gemini hoặc OpenAI-compatible), cắt ảnh hình/khung, xuất Word với công thức OMML (Pandoc) hoặc MathType OLE. File Word lưu trên Supabase 3 ngày.
 
+> 📘 **Hướng dẫn cài đặt & sử dụng từ A đến Z:** mở file [`HUONG-DAN.html`](./HUONG-DAN.html) (mở trực tiếp bằng trình duyệt) — gồm setup Supabase, deploy Vercel, chạy local, cách dùng, bảng biến môi trường và xử lý sự cố.
+
 ## Stack
 - Next.js 15 (App Router) + React 19 + TypeScript
 - Supabase Storage (private buckets, signed URLs)

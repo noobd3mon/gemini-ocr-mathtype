@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hướng dẫn cài đặt &amp; sử dụng — OCR PDF → Word (Gemini / OpenAI + MathType)</title>
+<style>
+  :root {
+    --bg: #0f1220; --card: #1a1f33; --card2: #202743; --ink: #e7e9f3; --mut: #9aa3c0;
+    --acc: #6c8cff; --line: #2b3253; --ok: #3ecf8e; --warn: #ffb454; --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.65;
+    font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  .hero {
+    background: linear-gradient(135deg, #1a1f33 0%, #232b52 100%);
+    border: 1px solid var(--line); border-radius: 14px; padding: 28px 28px 22px; margin-bottom: 28px;
+  }
+  .hero h1 { margin: 0 0 8px; font-size: 1.7rem; line-height: 1.3; }
+  .hero p { margin: 0; color: var(--mut); }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .badge {
+    font-size: .78rem; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--mut); background: rgba(108,140,255,.08);
+  }
+
+  nav.toc {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 28px;
+  }
+  nav.toc h2 { margin: 0 0 8px; font-size: 1rem; color: var(--acc); }
+  nav.toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 32px; }
+  nav.toc li { margin: 3px 0; break-inside: avoid; }
+  nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--line); }
+  nav.toc a:hover { color: var(--acc); border-color: var(--acc); }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } }
+
+  section { margin-bottom: 40px; }
+  h2.sec {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 1.3rem; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .stepnum {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 1rem;
+    background: rgba(108,140,255,.15); color: var(--acc); border: 1px solid var(--acc);
+  }
+  h3 { font-size: 1.02rem; margin: 22px 0 8px; color: var(--ink); }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  b, strong { color: #fff; }
+  .mut { color: var(--mut); }
+  code {
+    font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace;
+    background: #131830; border: 1px solid var(--line); border-radius: 6px;
+    padding: 1px 6px; font-size: .86em; color: #c9d4ff; word-break: break-all;
+  }
+  pre {
+    position: relative; background: #131830; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; margin: 10px 0;
+  }
+  pre code { background: none; border: none; padding: 0; color: #c9d4ff; font-size: .84rem; line-height: 1.55; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; font-size: .72rem; cursor: pointer;
+    background: var(--card2); color: var(--mut); border: 1px solid var(--line);
+    border-radius: 6px; padding: 3px 10px;
+  }
+  .copy-btn:hover { color: var(--ink); border-color: var(--acc); }
+
+  .box { border-radius: 10px; padding: 12px 16px; margin: 12px 0; border: 1px solid; font-size: .93rem; }
+  .box b:first-child { display: inline; }
+  .note { border-color: var(--acc); background: rgba(108,140,255,.07); }
+  .warn { border-color: var(--warn); background: rgba(255,180,84,.07); }
+  .danger { border-color: var(--err); background: rgba(255,107,107,.07); }
+  .okbox { border-color: var(--ok); background: rgba(62,207,142,.07); }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .9rem; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--card2); color: #fff; white-space: nowrap; }
+  td code { white-space: nowrap; }
+
+  .uimock {
+    background: var(--card); border: 1px dashed var(--line); border-radius: 12px;
+    padding: 16px; margin: 14px 0; font-size: .86rem; color: var(--mut);
+  }
+  .uimock .row { display: flex; gap: 10px; margin: 6px 0; flex-wrap: wrap; }
+  .uimock .chip { border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+  .uimock .chip.on { border-color: var(--acc); color: var(--ink); background: rgba(108,140,255,.12); }
+  .uimock .btn { border: 1px solid var(--acc); border-radius: 8px; padding: 8px 14px; color: var(--ink); background: rgba(108,140,255,.14); }
+
+  .checklist { list-style: none; padding-left: 0; }
+  .checklist li::before { content: '✅ '; }
+  footer { color: var(--mut); font-size: .85rem; text-align: center; margin-top: 48px; }
+  a.top { float: right; font-size: .8rem; color: var(--mut); text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+  a.top:hover { color: var(--acc); border-color: var(--acc); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>📘 Hướng dẫn cài đặt &amp; sử dụng<br>OCR PDF → Word (Gemini / OpenAI · Pandoc · MathType · Supabase)</h1>
+    <p>Web app chuyển file PDF (đề thi, tài liệu Toán–Lý chứa công thức, bảng biểu, hình vẽ) thành file Word <b>.docx</b> giữ nguyên công thức toán. Bạn đang mở file <code>HUONG-DAN.html</code> nằm trong source code — làm theo lần lượt từ mục 1 đến mục 10 là có bản deploy hoàn chỉnh.</p>
+    <div class="badge-row">
+      <span class="badge">Next.js 15 + React 19</span>
+      <span class="badge">Gemini API hoặc OpenAI-compatible</span>
+      <span class="badge">Xuất OMML (Pandoc) hoặc MathType OLE</span>
+      <span class="badge">Lưu file trên Supabase 3 ngày</span>
+      <span class="badge">Deploy miễn phí trên Vercel</span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>Nội dung</h2>
+    <ol>
+      <li><a href="#tong-quan">Giới thiệu &amp; cách hoạt động</a></li>
+      <li><a href="#chuan-bi">Chuẩn bị những gì cần có</a></li>
+      <li><a href="#supabase">Thiết lập Supabase (15 phút)</a></li>
+      <li><a href="#deploy">Deploy lên Vercel (10 phút)</a></li>
+      <li><a href="#local">Chạy trên máy cá nhân (tuỳ chọn)</a></li>
+      <li><a href="#su-dung">Sử dụng ứng dụng từ A đến Z</a></li>
+      <li><a href="#xuat-word">Xuất Word &amp; cơ chế lưu 3 ngày</a></li>
+      <li><a href="#env">Bảng biến môi trường</a></li>
+      <li><a href="#sua-loi">Xử lý sự cố thường gặp</a></li>
+      <li><a href="#kien-truc">Kiến trúc &amp; bảo mật</a></li>
+    </ol>
+  </nav>
+
+  <!-- ================= 1 ================= -->
+  <section id="tong-quan">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">1</span>Giới thiệu &amp; cách hoạt động</h2>
+    <p>Ứng dụng gồm 2 nửa:</p>
+    <ul>
+      <li><b>Phía trình duyệt (làm việc nặng):</b> gửi thẳng file PDF tới Gemini <i>hoặc</i> render từng trang PDF thành ảnh rồi gửi tới API tương thích OpenAI. Toàn bộ API key của bạn <b>chỉ nằm trong trình duyệt</b> (localStorage), không đi qua server của app.</li>
+      <li><b>Phía server (Vercel + Supabase):</b> lưu file Word đã xuất vào Supabase Storage 3 ngày, cấp link tải (signed URL) và tự dọn dẹp hàng ngày bằng cron.</li>
+    </ul>
+    <p>Luồng xử lý một file PDF:</p>
+    <ol>
+      <li>Bạn kéo-thả PDF → bấm <b>Chạy OCR</b>.</li>
+      <li>Model AI đọc tài liệu, trả về Markdown: công thức dạng <code>$...$</code> / <code>$$...$$</code> (LaTeX), bảng dạng pipe table, và đánh dấu vị trí hình vẽ bằng marker <code>[[IMAGE:trang,x1,y1,x2,y2|chú thích]]</code>.</li>
+      <li>App tự cắt đúng vùng hình từ trang đã render (toạ độ phần nghìn, nền trắng), nhúng ảnh vào Markdown.</li>
+      <li>Bạn sửa Markdown nếu muốn, xem trước trực tiếp (công thức render bằng KaTeX).</li>
+      <li>Bấm xuất Word → chọn <b>Equation (OMML)</b> qua server Pandoc hoặc <b>MathType (OLE)</b> qua server MathType → file tải về máy và đồng thời được lưu trên server 3 ngày.</li>
+    </ol>
+    <div class="box note"><b>Nhiều API key, tự xoay vòng:</b> dán nhiều key (mỗi dòng một key). Khi một key bị giới hạn tốc độ (429/quota), app tự chuyển sang key kế tiếp và làm lại — bạn không phải bấm lại gì cả.</div>
+  </section>
+
+  <!-- ================= 2 ================= -->
+  <section id="chuan-bi">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">2</span>Chuẩn bị những gì cần có</h2>
+    <table>
+      <tr><th>Cần</th><th>Lấy ở đâu</th><th>Chi phí</th></tr>
+      <tr>
+        <td>Tài khoản <b>GitHub</b></td>
+        <td><a href="https://github.com/signup" target="_blank" rel="noopener">github.com/signup</a></td>
+        <td>Miễn phí</td>
+      </tr>
+      <tr>
+        <td>Tài khoản <b>Vercel</b> (nơi chạy app)</td>
+        <td><a href="https://vercel.com/signup" target="_blank" rel="noopener">vercel.com/signup</a> — đăng nhập bằng GitHub cho nhanh</td>
+        <td>Miễn phí (Hobby)</td>
+      </tr>
+      <tr>
+        <td>Tài khoản <b>Supabase</b> (nơi lưu file)</td>
+        <td><a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> — đăng nhập bằng GitHub</td>
+        <td>Miễn phí (500MB database + 1GB storage)</td>
+      </tr>
+      <tr>
+        <td><b>API key Gemini</b> <span class="mut">(khuyến nghị — nhanh, rẻ, đọc cả file PDF)</span></td>
+        <td><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> → <i>Create API key</i> → copy key dạng <code>AIza...</code></td>
+        <td>Có hạn mức miễn phí</td>
+      </tr>
+      <tr>
+        <td><b>API key OpenAI-compatible</b> <span class="mut">(tuỳ chọn — dùng nếu muốn nhà cung cấp khác)</span></td>
+        <td>Từ nhà cung cấp bạn chọn (OpenAI, hoặc bên thứ 3 có <i>Base URL</i> kiểu <code>https://.../v1</code>)</td>
+        <td>Tùy nhà cung cấp</td>
+      </tr>
+      <tr>
+        <td><b>Node.js ≥ 20</b> <span class="mut">(chỉ cần khi chạy trên máy cá nhân)</span></td>
+        <td><a href="https://nodejs.org" target="_blank" rel="noopener">nodejs.org</a> — bản LTS</td>
+        <td>Miễn phí</td>
+      </tr>
+    </table>
+    <div class="box note"><b>Server Pandoc và MathType:</b> hai dịch vụ chuyển công thức (<code>pandoc-server.onrender.com</code>, <code>latex2mathtypeweb.onrender.com</code>) đã được cấu hình sẵn trong code, bạn không cần cài gì. Nếu bạn tự vận hành server riêng, xem biến <code>PANDOC_URL</code> / <code>MATHTYPE_URL</code> ở mục 8.</div>
+  </section>
+
+  <!-- ================= 3 ================= -->
+  <section id="supabase">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">3</span>Thiết lập Supabase (15 phút)</h2>
+
+    <h3>3.1. Tạo project</h3>
+    <ol>
+      <li>Vào <a href="https://supabase.com/dashboard" target="_blank" rel="noopener">supabase.com/dashboard</a> → <b>New project</b>.</li>
+      <li>Đặt tên bất kỳ (ví dụ <code>ocr-word</code>), tạo mật khẩu database (không cần nhớ), chọn region gần bạn nhất (Singapore) → <b>Create new project</b>.</li>
+      <li>Chờ 1–3 phút cho project khởi tạo xong.</li>
+    </ol>
+
+    <h3>3.2. Tạo 2 bucket lưu trữ (chạy script SQL có sẵn)</h3>
+    <ol>
+      <li>Menu trái → <b>SQL Editor</b> → <b>New query</b>.</li>
+      <li>Mở file <code>supabase/setup.sql</code> trong source code, copy <b>toàn bộ</b> nội dung, dán vào ô query → <b>Run</b> (Ctrl+Enter).</li>
+      <li>Kết quả <span class="mut">(“Success. No rows returned” là đúng)</span>. Script đã tạo 2 bucket <b>private</b> là <code>temp-images</code> và <code>word-exports</code> + khoá toàn bộ truy cập từ ngoài (RLS deny-all) — chỉ server của bạn với key service_role mới đọc/ghi được.</li>
+      <li>Chạy lại script nhiều lần cũng không sao (an toàn, có <code>on conflict do nothing</code>).</li>
+    </ol>
+    <div class="box warn"><b>Kiểm tra nhanh:</b> vào <i>Storage</i> trên menu trái, phải thấy 2 bucket <code>temp-images</code> và <code>word-exports</code>, biểu tượng có dấu khoá (Private). Nếu thiếu, chạy lại script.</div>
+
+    <h3>3.3. Lấy 2 thông tin cần thiết</h3>
+    <ol>
+      <li>Menu trái → <b>Project Settings</b> (⚙️) → <b>API</b>.</li>
+      <li>Copy <b>Project URL</b> — dạng <code>https://xxxxx.supabase.co</code>. Đây là <code>SUPABASE_URL</code>.</li>
+      <li>Kéo xuống <b>Project API keys</b> → dòng <code>service_role</code> → bấm <i>Reveal</i> → copy. Đây là <code>SUPABASE_SERVICE_ROLE_KEY</code>.</li>
+    </ol>
+    <div class="box danger"><b>Bảo mật:</b> chỉ dùng key <code>service_role</code> ở môi trường server (Vercel / file <code>.env.local</code>). <u>Tuyệt đối không</u> đưa key này vào code, không commit lên GitHub, không dán vào bất kỳ đâu công khai. App được thiết kế để key này chỉ tồn tại trong biến môi trường server.</div>
+  </section>
+
+  <!-- ================= 4 ================= -->
+  <section id="deploy">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">4</span>Deploy lên Vercel (10 phút)</h2>
+
+    <h3>4.1. Đưa source lên GitHub</h3>
+    <p>Nếu source đã ở trên GitHub của bạn thì bỏ qua. Nếu chưa, có 2 cách:</p>
+    <p><b>Cách nhanh (không cần cài gì):</b> nút <b>Code</b> trên repo → <i>Download ZIP</i> → giải nén → tạo repo mới trên GitHub → <i>uploading an existing file</i> → kéo toàn bộ file vào (nhớ bỏ qua thư mục <code>node_modules</code> và <code>.next</code> nếu có) → <i>Commit changes</i>.</p>
+    <p><b>Cách chuẩn (dòng lệnh):</b></p>
+<pre><code>git clone &lt;url-source-cua-ban&gt;
+cd ten-thu-muc
+git remote set-url origin https://github.com/&lt;ban&gt;/&lt;repo-moi&gt;.git
+git push -u origin main</code></pre>
+
+    <h3>4.2. Import vào Vercel</h3>
+    <ol>
+      <li>Vào <a href="https://vercel.com/dashboard" target="_blank" rel="noopener">vercel.com/dashboard</a> → <b>Add New… → Project</b>.</li>
+      <li>Chọn repo vừa push → <b>Import</b>. Vercel tự nhận Next.js, giữ nguyên mọi thiết lập mặc định.</li>
+      <li>Mở rộng <b>Environment Variables</b>, thêm từng dòng sau (name → value):</li>
+    </ol>
+<pre data-copy><code>SUPABASE_URL = https://xxxxx.supabase.co          ← Project URL ở mục 3.3
+SUPABASE_SERVICE_ROLE_KEY = eyJhbGciOi...         ← service_role key ở mục 3.3
+CRON_SECRET = dat-chuoi-ngau-nhien-bat-ky         ← tự nghĩ một chuỗi dài 16+ ký tự
+PANDOC_URL = https://pandoc-server.onrender.com/convert      (tuỳ chọn, đã có mặc định)
+MATHTYPE_URL = https://latex2mathtypeweb.onrender.com        (tuỳ chọn, đã có mặc định)</code></pre>
+    <div class="box note"><b>CRON_SECRET là gì?</b> Mật khẩu bảo vệ endpoint dọn dẹp file cũ. Vercel sẽ tự động gửi nó theo dạng <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code> mỗi ngày lúc 03:00 UTC để xoá file quá 3 ngày. Chỉ cần là một chuỗi ký tự ngẫu nhiên, không cần nhớ.</div>
+    <ol start="4">
+      <li>Bấm <b>Deploy</b> → chờ ~1 phút.</li>
+      <li>Khi xong, Vercel đưa bạn một link dạng <code>https://ten-project.vercel.app</code> — <b>đây chính là app của bạn</b>.</li>
+    </ol>
+
+    <h3>4.3. Kiểm tra sau khi deploy</h3>
+    <ul class="checklist">
+      <li>Mở link → thấy giao diện app (khung cấu hình bên trái, vùng thả PDF bên phải).</li>
+      <li>Vercel → <i>Project → Settings → Cron Jobs</i> → thấy cron <code>/api/cleanup</code> lịch <code>0 3 * * *</code> (giờ UTC).</li>
+      <li>OCR thử + xuất thử 1 file (mục 6) → status hiện link <code>...supabase.co/storage/v1/object/sign/word-exports/...</code> là Supabase đã nối đúng.</li>
+    </ul>
+    <div class="box warn"><b>Sau này update source:</b> chỉ cần <code>git push</code> lên GitHub — Vercel tự deploy lại. Không cần làm lại mục 3, 4.</div>
+  </section>
+
+  <!-- ================= 5 ================= -->
+  <section id="local">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">5</span>Chạy trên máy cá nhân (tuỳ chọn)</h2>
+    <p>App đã chạy được trên Vercel rồi; phần này dành cho ai muốn sửa code hoặc chạy offline. Yêu cầu <b>Node.js ≥ 20</b>.</p>
+<pre data-copy><code># 1. Lấy source về
+git clone &lt;url-source-cua-ban&gt;
+cd ten-thu-muc
+
+# 2. Cài thư viện
+npm install
+
+# 3. Tạo file biến môi trường
+#    Windows (cmd):  copy .env.example .env.local
+#    Windows (PowerShell): Copy-Item .env.example .env.local
+#    macOS/Linux:    cp .env.example .env.local
+
+# 4. Mở file .env.local và điền đủ 4 dòng (giống mục 4.2):
+#    SUPABASE_URL=...
+#    SUPABASE_SERVICE_ROLE_KEY=...
+#    CRON_SECRET=...
+#    PANDOC_URL=https://pandoc-server.onrender.com/convert
+#    MATHTYPE_URL=https://latex2mathtypeweb.onrender.com
+
+# 5. Chạy
+npm run dev</code></pre>
+    <p>Mở <code>http://localhost:3000</code>. Dùng thử đúng như mục 6.</p>
+    <div class="box note"><b>Các lệnh hữu ích:</b> <code>npm test</code> — chạy bộ kiểm thử tự động (84 test); <code>npm run build</code> — kiểm tra bản production trước khi deploy.</div>
+  </section>
+
+  <!-- ================= 6 ================= -->
+  <section id="su-dung">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">6</span>Sử dụng ứng dụng từ A đến Z</h2>
+
+    <h3>6.1. Nhìn tổng quan màn hình</h3>
+    <div class="uimock">
+      <div class="row"><b style="color:var(--ink)">Cấu hình</b> (cột trái) — mọi thiết lập lưu tự động vào trình duyệt, lần sau vào lại không phải nhập lại.</div>
+      <div class="row">
+        <span class="chip on">Gemini API</span><span class="chip">OpenAI Completions</span>
+      </div>
+      <div class="row mut">↓ Khung nhập key (một key mỗi dòng) · Model · Số trang tối đa · Độ phân giải render · Hướng dẫn thêm · Tên file xuất</div>
+      <div class="row"><b style="color:var(--ink)">Tài liệu</b> (cột phải): vùng kéo-thả PDF → nút <span class="btn">Chạy OCR</span> → thanh số liệu (kí tự · trang · công thức · ảnh) → dòng trạng thái → 2 nút <span class="btn">Xuất Word</span> → khung sửa Markdown + xem trước song song.</div>
+    </div>
+
+    <h3>6.2. Cấu hình lần đầu</h3>
+    <ol>
+      <li><b>Chọn nhà cung cấp AI:</b>
+        <ul>
+          <li><b>Gemini API</b> (khuyến nghị): chỉ cần key <code>AIza...</code>. App gửi cả file PDF trong một request — nhanh và chính xác với tài liệu nhiều trang. Giới hạn: PDF ≤ <b>14MB</b>.</li>
+          <li><b>OpenAI Completions</b>: cần <b>Base URL</b> (ví dụ <code>https://api.openai.com/v1</code> hoặc base URL của nhà cung cấp khác), <b>Model</b> (ví dụ <code>gpt-4o</code>), và nếu muốn — số <b>Max tokens</b>. App render từng trang PDF thành ảnh rồi gửi theo <b>nhóm 4 trang/request</b>, phù hợp PDF lớn.</li>
+        </ul>
+      </li>
+      <li><b>Dán API key</b> vào khung key: <u>mỗi key một dòng</u>, có thể dán nhiều key để tự xoay vòng khi gặp giới hạn tốc độ. Dòng trống bị bỏ qua.</li>
+      <li><b>Chọn model Gemini</b>: <code>gemini-3.5-flash</code> (mặc định, cân bằng) · <code>gemini-3.6-flash</code> (mới nhất) · <code>gemini-3.1-flash-lite</code> (rẻ/nhanh) · <code>gemini-3-flash-preview</code>.</li>
+      <li><b>Số trang tối đa</b>: mặc định 30, tối đa 200. Trang vượt số này sẽ không được OCR.</li>
+      <li><b>Độ phân giải render</b>: 2x phù hợp đa số; 3x cho tài liệu chữ nhỏ/nhiều chi tiết (nặng bộ nhớ hơn).</li>
+      <li><b>Hướng dẫn thêm</b> (tuỳ chọn): ví dụ <i>“Giữ nguyên tên riêng trong ngoặc vuông”</i> — được chèn thêm vào yêu cầu gửi cho model.</li>
+      <li><b>Tên file xuất</b>: phần tên của file Word, không dấu. Mặc định <code>tai_lieu_ocr</code> → file ra là <code>tai_lieu_ocr_equation.docx</code> hoặc <code>tai_lieu_ocr_mathtype.docx</code>.</li>
+    </ol>
+
+    <h3>6.3. Chạy OCR</h3>
+    <ol>
+      <li>Kéo file PDF vào vùng thả (hoặc bấm vào vùng đó để chọn file).</li>
+      <li>Bấm <b>Chạy OCR</b>. Dòng trạng thái sẽ cập nhật liên tục: <span class="mut">“Đang đọc PDF…” → “Đang gửi PDF tới gemini-3.5-flash…” → (nếu bị giới hạn) “Rate-limited — chuyển key (lần 1)…” → “Đang cắt N ảnh từ M trang…” → “OCR hoàn tất.”</span></li>
+      <li>Khi xong: khung trái là <b>Markdown thô</b> (sửa được trực tiếp), khung phải là <b>xem trước</b> — công thức render bằng KaTeX, bảng có viền, hình đã cắt hiện ngay tại chỗ. Thanh số liệu cho biết tổng kí tự / số trang / số công thức / số ảnh.</li>
+    </ol>
+    <div class="box note"><b>Kiểu chữ trong Markdown:</b> <code>[[IMAGE:...]]</code> màu nhạt là marker hình chưa cắt được (trang vượt số trang tối đa hoặc toạ độ sai) — chúng sẽ bị bỏ qua khi xuất Word. Bài toán/quảng cáo dư thừa bạn có thể xoá trực tiếp trong khung Markdown trước khi xuất.</div>
+
+    <h3>6.4. Xuất Word</h3>
+    <table>
+      <tr><th>Nút</th><th>Dùng khi nào</th><th>Kết quả</th></tr>
+      <tr>
+        <td><b>Xuất Word (Equation / OMML)</b></td>
+        <td>Mặc định — tương thích mọi máy có Word 2007+</td>
+        <td>Công thức là công thức Word chuẩn (OMML), chỉnh sửa được ngay trong Word. App tự ép font <b>Times New Roman</b> toàn văn bản và tô style nhãn câu hỏi: <b><span style="color:#1D4ED8">Câu 1.</span></b> / <b><span style="color:#1D4ED8">A.</span> <span style="color:#1D4ED8">B.</span> <span style="color:#1D4ED8">C.</span> <span style="color:#1D4ED8">D.</span></b> màu xanh đậm in đậm, <b>a) b) c) d)</b> in đậm.</td>
+      </tr>
+      <tr>
+        <td><b>Xuất Word (MathType OLE)</b></td>
+        <td>Khi bạn cần công thức dạng MathType (biểu tượng.MathType, dùng chung với bộ giáo án cũ)</td>
+        <td>Công thức nhúng dưới dạng OLE của MathType. Sau khi mở file, thanh trạng thái hiện số công thức convert thành công/thất bại.</td>
+      </tr>
+    </table>
+    <p>Sau khi bấm xuất: file <b>tải tự động về máy</b> và đồng thời được <b>lưu lên server 3 ngày</b> (link tải hiện trong dòng trạng thái). Nếu bước lưu server lỗi vì bất kỳ lý do gì, app vẫn tải file trực tiếp từ trình duyệt — bạn không bao giờ mất kết quả.</p>
+  </section>
+
+  <!-- ================= 7 ================= -->
+  <section id="xuat-word">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">7</span>Xuất Word &amp; cơ chế lưu 3 ngày</h2>
+    <ul>
+      <li><b>File Word lưu ở đâu?</b> Trong bucket <code>word-exports</code> trên Supabase của bạn, theo cấu trúc <code>j-&lt;mã-ngẫu-nhiên&gt;/tên-file.docx</code>.</li>
+      <li><b>Link tải có hạn không?</b> Có — 3 ngày (signed URL). Sau 3 ngày link hết hiệu lực.</li>
+      <li><b>File bị xoá khi nào?</b> Cron trên Vercel chạy lúc <b>03:00 UTC mỗi ngày</b>, tự xoá mọi file (và ảnh tạm trong <code>temp-images</code>) có tuổi trên 3 ngày. Bạn không phải làm gì.</li>
+      <li><b>Coi lại file cũ?</b> Vào Supabase → <i>Storage → word-exports</i>, chọn file → <i>Download</i> hoặc tạo signed URL mới.</li>
+      <li><b>Chạy dọn dẹp thủ công</b> (ví dụ muốn xoá ngay toàn bộ file cũ):</li>
+    </ul>
+<pre data-copy><code>curl -X POST https://ten-project.vercel.app/api/cleanup \
+  -H "Authorization: Bearer &lt;CRON_SECRET-cua-ban&gt;"
+# → {"removed": &lt;số-file-đã-xoá&gt;}</code></pre>
+    <div class="box okbox"><b>Ảnh tạm:</b> ảnh cắt để nhúng vào Word chỉ đi kèm trong request convert và sống trong bucket <code>temp-images</code> trong 3 ngày, sau đó cron dọn. Không ảnh nào bị công khai — mọi bucket đều private.</div>
+  </section>
+
+  <!-- ================= 8 ================= -->
+  <section id="env">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">8</span>Bảng biến môi trường</h2>
+    <table>
+      <tr><th>Biến</th><th>Bắt buộc?</th><th>Ý nghĩa</th></tr>
+      <tr><td><code>SUPABASE_URL</code></td><td>✅</td><td>Project URL của Supabase, dạng <code>https://xxxx.supabase.co</code>. <span class="mut">Mục 3.3.</span></td></tr>
+      <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>✅</td><td>Key <code>service_role</code> của Supabase. <b>Chỉ server dùng</b> — app chặn tuyệt đối không đưa vào trình duyệt. <span class="mut">Mục 3.3.</span></td></tr>
+      <tr><td><code>CRON_SECRET</code></td><td>✅</td><td>Mật khẩu bảo vệ <code>/api/cleanup</code>. Vercel cron tự gửi kèm — chỉ cần đặt một chuỗi ngẫu nhiên 16+ ký tự.</td></tr>
+      <tr><td><code>PANDOC_URL</code></td><td>—</td><td>Server Pandoc chuyển LaTeX → OMML. Mặc định <code>https://pandoc-server.onrender.com/convert</code>.</td></tr>
+      <tr><td><code>MATHTYPE_URL</code></td><td>—</td><td>Server MathType chuyển LaTeX → OLE. Mặc định <code>https://latex2mathtypeweb.onrender.com</code>.</td></tr>
+    </table>
+    <p class="mut">Lưu ý: <code>PANDOC_URL</code> / <code>MATHTYPE_URL</code> không điền cũng chạy — app dùng mặc định. Điền chỉ khi bạn tự vận hành server riêng (ví dụ dùng file <code>docs</code> của app gốc).</p>
+  </section>
+
+  <!-- ================= 9 ================= -->
+  <section id="sua-loi">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">9</span>Xử lý sự cố thường gặp</h2>
+    <table>
+      <tr><th>Hiện tượng</th><th>Nguyên nhân &amp; cách xử lý</th></tr>
+      <tr>
+        <td>“<i>Tất cả API key đều đang bị giới hạn tốc độ…</i>”</td>
+        <td>Mọi key trong khung key đều vừa bị 429/quota. Đợi 1–2 phút rồi bấm lại, hoặc thêm key mới (mỗi dòng một key). Gemini free tier có giới hạn theo phút/ngày — key nhiều hơn = ít gặp hơn.</td>
+      </tr>
+      <tr>
+        <td>“<i>PDF quá lớn để gửi trực tiếp tới Gemini (… &gt; 14MB)</i>”</td>
+        <td>Chuyển <b>chế độ OpenAI Completions</b> (gửi theo nhóm 4 trang, không giới hạn dung lượng file), hoặc tách PDF nhỏ hơn.</td>
+      </tr>
+      <tr>
+        <td>Xuất Word lỗi <code>Pandoc Server Error: 502/503</code> lần đầu</td>
+        <td>Server Pandoc chạy free tier trên Render — “ngủ” sau ~15 phút không dùng, request đầu tiên phải đánh thức. <b>Bấm xuất lại lần nữa là được</b> (app đã tự thử 2 lần). Nếu vẫn lỗi, thử lại sau 1 phút.</td>
+      </tr>
+      <tr>
+        <td>Xuất MathType hiện “<i>N thành công, M lỗi</i>”</td>
+        <td>M công thức quá phức tạp / ký hiệu lạ mà server MathType không convert được. Mở file Word kiểm tra — các công thức còn lại vẫn bình thường; bạn có thể vẽ lại tay M công thức đó.</td>
+      </tr>
+      <tr>
+        <td>OCR OpenAI báo lỗi <b>CORS</b> hoặc <code>Failed to fetch</code></td>
+        <td>Nhà cung cấp API của bạn không cho gọi trực tiếp từ trình duyệt. Dùng nhà cung cấp cho phép CORS (OpenAI chính chủ, hoặc Gemini), hoặc tự đặt một proxy cho phép CORS rồi trỏ <i>Base URL</i> vào đó.</td>
+      </tr>
+      <tr>
+        <td>Trang trắng / lỗi khi mở app sau khi deploy</td>
+        <td>Xem <i>Vercel → Deployments → Logs</i>. Thường là thiếu env — xem mục 4.2, thêm đủ rồi <i>Redeploy</i>.</td>
+      </tr>
+      <tr>
+        <td><code>/api/cleanup</code> trả <code>401 Unauthorized</code></td>
+        <td>Header <code>Authorization</code> không khớp <code>CRON_SECRET</code> trong env của Vercel. Đối chiếu lại chuỗi secret (mục 7 có lệnh curl mẫu). Cron tự động của Vercel luôn khớp vì Vercel tự gửi — chỉ ảnh hưởng khi bạn gọi tay.</td>
+      </tr>
+      <tr>
+        <td>Link tải file Word “<i>File Word đã hết hạn hoặc không tồn tại</i>”</td>
+        <td>Quá 3 ngày (signed URL hết hạn) hoặc cron đã dọn. Vào Supabase → Storage → <code>word-exports</code> tạo signed URL mới, hoặc xuất lại.</td>
+      </tr>
+      <tr>
+        <td>Ảnh trong preview hiện marker <code>[[IMAGE:…]]</code> màu nhạt, không hiện hình</td>
+        <td>Trang chứa hình nằm ngoài “Số trang tối đa”, hoặc toạ độ marker do model trả sai. Tăng số trang tối đa rồi chạy lại OCR; hoặc xóa marker trước khi xuất.</td>
+      </tr>
+      <tr>
+        <td>Chạy <code>npm run dev</code> máy cá nhân báo thiếu <code>SUPABASE_*</code> khi bấm xuất</td>
+        <td>Chưa tạo/điền <code>.env.local</code> — xem mục 5. Xuất Word vẫn tải trực tiếp được nếu bạn bỏ qua lưu server, nhưng tính năng “lưu 3 ngày” cần đủ env.</td>
+      </tr>
+      <tr>
+        <td>Công thức trong Word hiển thị nhưng sai cấu trúc</td>
+        <td>Model OCR ghi LaTeX không chuẩn. Sửa trực tiếp công thức trong khung Markdown (giữa hai dấu <code>$</code>) rồi xuất lại.</td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ================= 10 ================= -->
+  <section id="kien-truc">
+    <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">10</span>Kiến trúc &amp; bảo mật</h2>
+    <h3>Cấu trúc thư mục chính</h3>
+<pre><code>src/
+├── app/
+│   ├── page.tsx                 # Giao diện chính (OCR → sửa → xuất)
+│   ├── layout.tsx  globals.css  # Khung trang + theme
+│   └── api/
+│       ├── config/              # GET  — cấu hình public cho client
+│       ├── jobs/                # POST — tạo mã job
+│       ├── jobs/[id]/finalize/  # POST — lưu Word + xoá ảnh tạm
+│       ├── jobs/[id]/           # GET  — cấp lại link tải
+│       ├── jobs/[id]/upload-urls/ # POST — upload ảnh tạm (dự phòng)
+│       └── cleanup/             # GET/POST — cron dọn dẹp (Bearer CRON_SECRET)
+├── components/                  # SetupPanel, KeysEditor, Dropzone, StatsBar,
+│                                # EditorPane, PreviewPane, ExportMenu
+├── hooks/useSettings.ts         # Thiết lập ↔ localStorage
+└── lib/
+    ├── key-rotation.ts          # Vòng xoay nhiều key + cooldown khi bị 429
+    ├── providers/               # gemini.ts (gửi cả PDF) · openai.ts (nhóm 4 trang) · prompt.ts
+    ├── pdf/                     # render-pages.ts (pdfjs) · cut-image.ts (cắt hình)
+    ├── markdown/                # markers.ts · build-markdown.ts · sanitizer
+    ├── preview/md-html.ts       # Render xem trước + KaTeX (escape HTML an toàn)
+    ├── export/                  # pandoc.ts · mathtype.ts · postprocess.ts (font + nhãn câu)
+    ├── jobs.ts supabase-server.ts  # Upload/signed URL/cleanup trên Supabase
+    └── orchestrate.ts           # Dàn xếp luồng OCR → cắt ảnh
+supabase/setup.sql               # Script tạo bucket + RLS (chạy 1 lần)
+vercel.json                      # Cron dọn dẹp 03:00 UTC hằng ngày
+.env.example                     # Khung biến môi trường</code></pre>
+
+    <h3>Bảo mật — những gì app đảm bảo</h3>
+    <ul class="checklist">
+      <li><b>API key của người dùng chỉ nằm trong trình duyệt</b> (localStorage) — request tới Gemini/OpenAI đi thẳng từ trình duyệt, không qua server app, không bị ghi lại.</li>
+      <li><b><code>service_role</code> key chỉ tồn tại trên server</b> (biến môi trường) — đã kiểm chứng không xuất hiện trong bundle JavaScript gửi xuống trình duyệt.</li>
+      <li><b>Bucket Supabase private + RLS khoá toàn bộ</b> — ngoài server không ai truy cập trực tiếp được; tải file chỉ qua signed URL sống tối đa 3 ngày.</li>
+      <li><b>Cron endpoint yêu cầu secret</b> — không ai gọi tay xoá dữ liệu của bạn được.</li>
+      <li><b>Preview chống XSS</b> — mọi nội dung Markdown (kể cả do model trả về) đều được escape HTML trước khi render; URL ảnh được escape để chèn attribute.</li>
+    </ul>
+    <div class="box warn"><b>Giới hạn đã biết:</b> các API <code>/api/jobs*</code> không yêu cầu đăng nhập (thiết kế cho công cụ cá nhân/công khai) — người lạ biết URL có thể tạo job/upload vào bucket của bạn và chiếm dụng dung lượng Supabase. Nếu chia sẻ công khai, hãy theo dõi dung lượng Supabase, hoặc tự thêm bước xác thực (ví dụ mật khẩu truy cập đơn giản) trước khi mở rộng.</div>
+
+    <h3>Bảng tóm tắt hạn mức</h3>
+    <table>
+      <tr><th>Hạn mức</th><th>Giá trị</th></tr>
+      <tr><td>Gemini — dung lượng PDF mỗi request</td><td>≤ 14MB (base64 hoá ≈ 18.7MB, nằm dưới trần 20MB của Google)</td></tr>
+      <tr><td>OpenAI — số trang mỗi request</td><td>4 trang (điều chỉnh được qua <code>pagesPerRequest</code> trong code)</td></tr>
+      <tr><td>Số trang OCR tối đa / lần</td><td>200 (mặc định 30)</td></tr>
+      <tr><td>Lưu file Word trên server</td><td>3 ngày (signed URL 3 ngày + cron dọn lúc 03:00 UTC)</td></tr>
+      <tr><td>Cool-down khi key bị 429</td><td>60 giây rồi tự đưa key trở lại vòng xoay</td></tr>
+      <tr><td>Xem trước Markdown</td><td>Cắt ở 300.000 kí tự đầu (xuất Word vẫn lấy <b>toàn bộ</b> nội dung)</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    OCR PDF → Word · Hướng dẫn này đi kèm source code (file <code>HUONG-DAN.html</code>) · Cập nhật 2026-08-26
+  </footer>
+</div>
+
+<script>
+  // Nút "Copy" cho các khối lệnh — chạy cả khi mở file trực tiếp (file://).
+  document.querySelectorAll('pre[data-copy]').forEach(function (pre) {
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.type = 'button';
+    btn.textContent = 'Copy';
+    btn.addEventListener('click', function () {
+      var text = pre.innerText.replace(/^Copy\n?/, '');
+      var done = function () {
+        btn.textContent = '✓ Đã copy';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function () { fallback(); });
+      } else { fallback(); }
+      function fallback() {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) { /* ignore */ }
+        document.body.removeChild(ta);
+      }
+    });
+    pre.appendChild(btn);
+  });
+</script>
+</body>
+</html>
