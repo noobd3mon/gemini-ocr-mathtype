@@ -453,6 +453,10 @@ npm run dev</code></pre>
         <td>Biến <code>SUPABASE_URL</code> trên Vercel bị dán thừa đường dẫn (thường là <code>https://xxx.supabase.co/rest/v1</code> lấy nhầm từ phần API docs). Sửa lại trong <i>Vercel → Settings → Environment Variables</i> thành đúng <code>https://&lt;project-ref&gt;.supabase.co</code> rồi Redeploy. Bản mới của app đã tự cắt thừa phần này — chỉ cần Redeploy cũng được.</td>
       </tr>
       <tr>
+        <td><code>git push</code> rồi nhưng Vercel <b>không deploy bản mới</b> (sửa lỗi xong vẫn còn y nguyên)</td>
+        <td>Vercel project của bạn chưa nối (hoặc nối nhầm) Git repo. Vào <i>Vercel → Project → Settings → Git</i> xem “Connected Git Repository”: nếu không phải <code>noobd3mon/gemini-ocr-mathtype</code> → <b>Disconnect</b> rồi kết nối lại repo đó (public) → Redeploy. Từ đó mọi <code>git push</code> lên repo sẽ tự deploy.</td>
+      </tr>
+      <tr>
         <td>Task tạo được nhưng <b>đứng yên ở “Đang chờ” mãi không chạy</b></td>
         <td>Bạn đang mở app bằng <b>URL preview bị Vercel khoá SSO</b> (URL có chỗi ngẫu nhiên kiểu <code>-dfn1azhx8-</code>). Server tự gọi bước OCR kế tiếp bị 401. <b>Chuyển sang domain production</b> (mục 4.3) — hoặc tắt <i>Vercel → Settings → Deployment Protection → Vercel Authentication</i>. Giữ protection mà vẫn muốn chạy được: tạo <i>Bypass Protection Secret</i> rồi đặt vào env <code>VERCEL_PROTECTION_BYPASS</code> của Vercel (app tự gửi header bypass cho các call nội bộ).</td>
       </tr>
