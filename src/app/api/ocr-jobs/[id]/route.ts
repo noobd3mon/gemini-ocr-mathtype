@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { JobsService } from '@/lib/jobs';
-import { isValidJobId } from '@/lib/server-guards';
+import { internalFetchHeaders, isValidJobId } from '@/lib/server-guards';
 import { publicOcrJobView } from '@/lib/ocr-job-state';
 
 export const runtime = 'nodejs';
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             body: JSON.stringify({ jobId }),
           });
         } else {
-          await fetch(`${req.nextUrl.origin}/api/ocr-jobs/${jobId}/step`, { method: 'POST' });
+          await fetch(`${req.nextUrl.origin}/api/ocr-jobs/${jobId}/step`, { method: 'POST', headers: internalFetchHeaders() });
         }
       } catch { /* lần poll sau sẽ kick lại */ }
     });

@@ -251,6 +251,7 @@ MATHTYPE_URL = https://latex2mathtypeweb.onrender.com        (tuỳ chọn, đã
     </ol>
 
     <h3>4.3. Kiểm tra sau khi deploy</h3>
+    <div class="box danger"><b>Rất quan trọng — dùng đúng domain:</b> luôn dùng <b>domain production</b> (xem <i>Vercel → Project → Settings → Domains</i>, ví dụ <code>https://&lt;tên-project&gt;.vercel.app</code>). <u>Đừng</u> bookmark URL dạng <code>...-dfn1azhx8-....vercel.app</code> (URL của từng lần deploy): nó đổi sau mỗi lần deploy <b>và</b> bị Vercel khoá SSO — trang bạn xem được nhưng call nội bộ của server bị 401, task sẽ <b>không bao giờ chạy</b>.</div>
     <ul class="checklist">
       <li>Mở link → thấy giao diện app (khung cấu hình bên trái, vùng thả PDF bên phải).</li>
       <li>Vercel → <i>Project → Settings → Cron Jobs</i> → thấy cron <code>/api/cleanup</code> lịch <code>0 3 * * *</code> (giờ UTC).</li>
@@ -450,6 +451,10 @@ npm run dev</code></pre>
       <tr>
         <td>“<i>Invalid path specified in request URL</i>” khi tạo task</td>
         <td>Biến <code>SUPABASE_URL</code> trên Vercel bị dán thừa đường dẫn (thường là <code>https://xxx.supabase.co/rest/v1</code> lấy nhầm từ phần API docs). Sửa lại trong <i>Vercel → Settings → Environment Variables</i> thành đúng <code>https://&lt;project-ref&gt;.supabase.co</code> rồi Redeploy. Bản mới của app đã tự cắt thừa phần này — chỉ cần Redeploy cũng được.</td>
+      </tr>
+      <tr>
+        <td>Task tạo được nhưng <b>đứng yên ở “Đang chờ” mãi không chạy</b></td>
+        <td>Bạn đang mở app bằng <b>URL preview bị Vercel khoá SSO</b> (URL có chỗi ngẫu nhiên kiểu <code>-dfn1azhx8-</code>). Server tự gọi bước OCR kế tiếp bị 401. <b>Chuyển sang domain production</b> (mục 4.3) — hoặc tắt <i>Vercel → Settings → Deployment Protection → Vercel Authentication</i>. Giữ protection mà vẫn muốn chạy được: tạo <i>Bypass Protection Secret</i> rồi đặt vào env <code>VERCEL_PROTECTION_BYPASS</code> của Vercel (app tự gửi header bypass cho các call nội bộ).</td>
       </tr>
       <tr>
         <td>Task “mãi không xong” / gián đoạn giữa chừng</td>

@@ -15,3 +15,13 @@ export function sanitizeServerFileName(name: string): string {
   const base = cleaned || 'export.docx';
   return /\.docx$/i.test(base) ? base : `${base}.docx`;
 }
+
+/**
+ * Header cho các call nội bộ server→server (start→step, self-heal kick).
+ * Khi Vercel Deployment Protection bật, call nội bộ bị 401 — nếu user cấu hình
+ * Deployment Protection Bypass Secret, đặt vào env VERCEL_PROTECTION_BYPASS.
+ */
+export function internalFetchHeaders(): Record<string, string> {
+  const bypass = process.env.VERCEL_PROTECTION_BYPASS?.trim();
+  return bypass ? { 'x-vercel-protection-bypass': bypass } : {};
+}
