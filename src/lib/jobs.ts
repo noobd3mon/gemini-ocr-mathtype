@@ -19,10 +19,12 @@ export class JobsService {
     private readonly now: () => number = () => Date.now(),
   ) {}
 
-  async issueUploadUrls(jobId: string, blobs: Blob[], bucket: string): Promise<string[]> {
+  async issueUploadUrls(jobId: string, blobs: Blob[], bucket: string, startIndex = 0): Promise<string[]> {
     const out: string[] = [];
     for (let i = 0; i < blobs.length; i++) {
-      const path = `${jobId}/${i}.png`;
+      // Client upload từng ảnh một request (né giới hạn body 4.5MB) — startIndex
+      // là index THẬT của ảnh trong job, nếu không mọi ảnh sẽ ghi đè lên 0.png.
+      const path = `${jobId}/${startIndex + i}.png`;
       const { error } = await this.supabase.storage.from(bucket).upload(path, blobs[i], {
         contentType: blobs[i].type || 'image/png',
         upsert: true,

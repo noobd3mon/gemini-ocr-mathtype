@@ -22,16 +22,19 @@ export async function ensureJobId(): Promise<string | null> {
  */
 export async function uploadImagesToJob(jobId: string, images: Map<string, string>): Promise<Map<string, string> | null> {
   const out = new Map<string, string>();
+  let index = 0; // path thật trên server — mỗi ảnh một vị trí, tránh ghi đè
   for (const [key, dataUrl] of images) {
     try {
       const blob = dataUrlToBlob(dataUrl);
       const form = new FormData();
-      form.append('images[]', blob, 'image.png');
+      form.append('images[]', blob, `${index}.png`);
+      form.append('index', String(index));
       const res = await fetch(`/api/jobs/${jobId}/upload-urls`, { method: 'POST', body: form });
       if (!res.ok) return null;
       const { urls } = await res.json();
       if (!Array.isArray(urls) || typeof urls[0] !== 'string' || !urls[0]) return null;
       out.set(key, urls[0]);
+      index += 1;
     } catch {
       return null;
     }

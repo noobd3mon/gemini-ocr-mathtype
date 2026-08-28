@@ -51,6 +51,20 @@ describe('JobsService', () => {
     expect(urls).toEqual(['https://signed.test/j-1/0.png', 'https://signed.test/j-1/1.png']);
   });
 
+  it('issueUploadUrls honours startIndex so one-blob-per-request uploads never overwrite each other', async () => {
+    const uploaded: string[] = [];
+    const storage = fakeStorage({
+      upload: async (path) => { uploaded.push(path); return { path }; },
+      createSignedUrl: async (path, _expires) => ({ data: { signedUrl: `https://signed.test/${path}` }, error: null }),
+      list: async () => ({ data: [], error: null }),
+      remove: async () => ({ data: null, error: null }),
+    });
+    const svc = new JobsService(storage as never, fixedClock);
+    const urls = await svc.issueUploadUrls('j-1', [new Blob(['p3'])], 'temp-images', 3);
+    expect(uploaded).toEqual(['j-1/3.png']);
+    expect(urls).toEqual(['https://signed.test/j-1/3.png']);
+  });
+
   it('finalize uploads to word-exports and returns a signed download URL', async () => {
     let uploadedPath = '';
     const storage = fakeStorage({

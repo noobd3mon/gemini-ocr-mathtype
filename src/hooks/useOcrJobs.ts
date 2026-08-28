@@ -184,6 +184,7 @@ export function useOcrJobs() {
         for (let i = 0; i < pages.length; i++) {
           const form = new FormData();
           form.append('images[]', dataUrlToBlob(pages[i].dataUrl), `${i}.png`);
+          form.append('index', String(i)); // path thật trên server — tránh ghi đè 0.png
           const res = await fetch(`/api/jobs/${jobId}/upload-urls`, { method: 'POST', body: form });
           if (!res.ok) {
             uploadFailed = true;
