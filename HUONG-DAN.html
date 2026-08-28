@@ -405,6 +405,10 @@ npm run dev</code></pre>
         <td>Lỗi của bản setup cũ (có lệnh <code>alter table storage.objects</code> mà SQL Editor không có quyền ALTER). <b>Dùng lại file <code>supabase/setup.sql</code> mới nhất từ repo</b> — đã bỏ lệnh ALTER (RLS vốn được Supabase bật sẵn), bọc policy trong khối bắt lỗi. Nếu khi chạy thấy thông báo “Bỏ qua policy…” (màu vàng, không phải lỗi): script vẫn hoàn thành, bucket đã tạo — muốn thêm policy deny thì tạo qua <i>Dashboard → Storage → Policies</i>, còn không thì để trống cũng an toàn (bucket private mặc định chặn client).</td>
       </tr>
       <tr>
+        <td>“<i>Invalid path specified in request URL</i>” khi tạo task</td>
+        <td>Biến <code>SUPABASE_URL</code> trên Vercel bị dán thừa đường dẫn (thường là <code>https://xxx.supabase.co/rest/v1</code> lấy nhầm từ phần API docs). Sửa lại trong <i>Vercel → Settings → Environment Variables</i> thành đúng <code>https://&lt;project-ref&gt;.supabase.co</code> rồi Redeploy. Bản mới của app đã tự cắt thừa phần này — chỉ cần Redeploy cũng được.</td>
+      </tr>
+      <tr>
         <td>Trang trắng / lỗi khi mở app sau khi deploy</td>
         <td>Xem <i>Vercel → Deployments → Logs</i>. Thường là thiếu env — xem mục 4.2, thêm đủ rồi <i>Redeploy</i>.</td>
       </tr>
