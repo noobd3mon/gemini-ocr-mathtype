@@ -24,7 +24,7 @@ export class JobsService {
     for (let i = 0; i < blobs.length; i++) {
       const path = `${jobId}/${i}.png`;
       const { error } = await this.supabase.storage.from(bucket).upload(path, blobs[i], {
-        contentType: 'image/png',
+        contentType: blobs[i].type || 'image/png',
         upsert: true,
       });
       if (error) throw new Error(`Upload ảnh thất bại (${path}): ${error.message}`);
@@ -73,12 +73,17 @@ export class JobsService {
 
   // ===== OCR jobs chạy trên server (bucket ocr-jobs) =====
 
-  /** Đọc ảnh trang (temp-images, client upload) thành data URL cho bước OCR server. */
+  /** Đọc ảnh trang (temp-images, client upload) thành data URL cho bước OCR server.
+   *  Sniff magic bytes vì đuôi file luôn là .png dù nội dung có thể là JPEG (client
+   *  render bằng canvas.toDataURL('image/jpeg')). */
   async getPageDataUrl(jobId: string, page: number): Promise<string> {
     const dl = await this.supabase.storage.from('temp-images').download(`${jobId}/${page}.png`);
     if (dl.error || !dl.data) throw new Error(`Không đọc được ảnh trang ${page + 1} (hãy thử chạy lại job).`);
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
-    return `data:image/png;base64,${arrayBufferToBase64(bytesToArrayBuffer(bytes))}`;
+    let mime = 'image/png';
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) mime = 'image/jpeg';
+    else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) mime = 'image/webp';
+    return `data:${mime};base64,${arrayBufferToBase64(bytesToArrayBuffer(bytes))}`;
   }
 
   /** Cấp batch signed URL cho client tải các trang đã upload (để cắt ảnh sau khi job xong). */

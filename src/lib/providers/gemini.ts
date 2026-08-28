@@ -106,56 +106,79 @@ export interface GeminiImagesOcrOptions {
 }
 
 // OCR theo ảnh trang (dùng khi server chạy job từng nhóm — tương thích cả hai provider).
+// Có fallback model giống ocrPdfWithGemini: hết key ở model này → lùi model cũ hơn,
+// hoặc model 404 → thử model kế, để bước server không chết vì model chưa khả dụng.
 export async function ocrPageImagesWithGemini(opts: GeminiImagesOcrOptions): Promise<string> {
   if (opts.pageImages.length === 0) throw new Error('Không có ảnh trang nào để OCR.');
-  const pool = KeyPool.create(opts.keys);
+  const chain = buildModelChain(opts.model);
   const per = Math.max(1, opts.pagesPerRequest ?? 2);
   const startPage = opts.startPage ?? 1;
   const ranges = batchRanges(opts.pageImages.length, per, startPage);
 
-  const parts: string[] = [];
-  for (let i = 0; i < ranges.length; i++) {
-    const { from, to } = ranges[i];
-    const slice = opts.pageImages.slice(i * per, i * per + (to - from + 1));
-    const multiChunk = ranges.length > 1 || from !== 1;
-    const prompt = buildCorePrompt({
-      extraPrompt: opts.extraPrompt,
-      pageRange: multiChunk ? { from, to } : undefined,
-    });
-    const inlineParts = slice.map((dataUrl) => {
-      const m = dataUrl.match(/^data:([^;]+);base64,(.*)$/s);
-      if (!m) throw new Error('Data URL ảnh trang không hợp lệ.');
-      return { inlineData: { mimeType: m[1], data: m[2] } };
-    });
-    const body = {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: prompt }, ...inlineParts],
-        },
-      ],
-    };
-    const out = await runWithRotation(
-      pool,
-      async (key) => {
-        opts.onProgress?.(`Đang gửi trang ${from}-${to} tới ${opts.model}...`);
-        const res = await fetch(modelUrl(opts.model), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-          body: JSON.stringify(body),
+  let lastError: unknown;
+  for (let ci = 0; ci < chain.length; ci++) {
+    const model = chain[ci];
+    // Pool mới cho từng model: hạn mức Gemini tính theo model.
+    const pool = KeyPool.create(opts.keys);
+    const parts: string[] = [];
+    try {
+      for (let i = 0; i < ranges.length; i++) {
+        const { from, to } = ranges[i];
+        const slice = opts.pageImages.slice(i * per, i * per + (to - from + 1));
+        const multiChunk = ranges.length > 1 || from !== 1;
+        const prompt = buildCorePrompt({
+          extraPrompt: opts.extraPrompt,
+          pageRange: multiChunk ? { from, to } : undefined,
         });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw Object.assign(new Error(`Gemini API lỗi ${res.status}: ${errText.slice(0, 300)}`), { status: res.status });
-        }
-        const data = await res.json();
-        const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-        if (!text.trim()) throw new Error('Gemini trả về kết quả rỗng.');
-        return text;
-      },
-      { onRotated: opts.onRotated },
-    );
-    parts.push(out);
+        const inlineParts = slice.map((dataUrl) => {
+          const m = dataUrl.match(/^data:([^;]+);base64,(.*)$/s);
+          if (!m) throw new Error('Data URL ảnh trang không hợp lệ.');
+          return { inlineData: { mimeType: m[1], data: m[2] } };
+        });
+        const body = {
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }, ...inlineParts],
+            },
+          ],
+        };
+        const out = await runWithRotation(
+          pool,
+          async (key) => {
+            opts.onProgress?.(`Đang gửi trang ${from}-${to} tới ${model}...`);
+            const res = await fetch(modelUrl(model), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+              body: JSON.stringify(body),
+            });
+            if (!res.ok) {
+              const errText = await res.text().catch(() => '');
+              throw Object.assign(new Error(`Gemini API lỗi ${res.status}: ${errText.slice(0, 300)}`), { status: res.status });
+            }
+            const data = await res.json();
+            const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
+            if (!text.trim()) throw new Error('Gemini trả về kết quả rỗng.');
+            return text;
+          },
+          { onRotated: opts.onRotated },
+        );
+        parts.push(out);
+      }
+      return parts.join('\n\n');
+    } catch (err) {
+      lastError = err;
+      const exhausted = err instanceof KeyPoolExhaustedError;
+      const unavailable = isModelUnavailableError(err);
+      if (!exhausted && !unavailable) throw err;
+      if (ci + 1 < chain.length) {
+        opts.onProgress?.(
+          exhausted
+            ? `Tất cả key bị giới hạn với ${model} — thử lại với ${chain[ci + 1]}...`
+            : `${model} không khả dụng — thử lại với ${chain[ci + 1]}...`,
+        );
+      }
+    }
   }
-  return parts.join('\n\n');
+  throw lastError;
 }

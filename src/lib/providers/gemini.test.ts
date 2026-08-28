@@ -186,3 +186,37 @@ describe('ocrPageImagesWithGemini', () => {
     ).rejects.toThrow(/Không có ảnh/);
   });
 });
+
+describe('ocrPageImagesWithGemini model fallback', () => {
+  const dataUrl = (b: string) => `data:image/png;base64,${b}`;
+
+  it('falls back to the older model when the selected one returns 404', async () => {
+    const models: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      models.push(url.match(/models\/([^:]+):/)![1]);
+      if (models[models.length - 1] === 'gemini-3.7-flash') {
+        return jsonResponse({ error: { message: 'models/gemini-3.7-flash is not found' } }, 404);
+      }
+      return jsonResponse({ candidates: [{ content: { parts: [{ text: 'ok-fallback' }] } }] });
+    }));
+    const result = await ocrPageImagesWithGemini({
+      pageImages: [dataUrl('AAA')], keys: ['k1'], model: 'gemini-3.7-flash', pagesPerRequest: 1,
+    });
+    expect(result).toBe('ok-fallback');
+    expect(models).toEqual(['gemini-3.7-flash', 'gemini-3.6-flash']);
+  });
+
+  it('falls back after all keys are rate-limited on the first model', async () => {
+    const models: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      models.push(url.match(/models\/([^:]+):/)![1]);
+      if (models[models.length - 1] === 'gemini-3.7-flash') return jsonResponse({ error: { message: 'quota' } }, 429);
+      return jsonResponse({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] });
+    }));
+    const result = await ocrPageImagesWithGemini({
+      pageImages: [dataUrl('AAA')], keys: ['k1'], model: 'gemini-3.7-flash', pagesPerRequest: 1,
+    });
+    expect(result).toBe('ok');
+    expect(models).toEqual(['gemini-3.7-flash', 'gemini-3.6-flash']);
+  });
+});

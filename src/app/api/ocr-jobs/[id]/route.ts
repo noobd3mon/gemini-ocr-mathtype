@@ -11,8 +11,8 @@ export const dynamic = 'force-dynamic';
 const STALE_MS = 90_000; // không có cập nhật quá 90s → coi là chain đứt, tự "kick" lại
 
 // Trạng thái job (đã stripped keys). Nếu job đang chạy mà "đứt" (tab đóng khi
-// chain chưa kịp gọi bước tiếp), request poll này tự kích hoạt bước kế tiếp —
-// chỉ cần mở lại trang là job sống lại.
+// chain chưa kịp gọi bước tiếp), request poll này tự kích hoạt lại — chỉ cần
+// mở lại trang là job sống lại. Ưu tiên worker Render khi có env.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: jobId } = await params;
   if (!isValidJobId(jobId)) return NextResponse.json({ error: 'JobId không hợp lệ.' }, { status: 400 });
@@ -24,9 +24,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const stale = Date.now() - state.updatedAt > STALE_MS;
   const unlocked = !state.lockUntil || state.lockUntil < Date.now();
   if (active && stale && unlocked && (state.keys ?? []).length > 0) {
+    const workerUrl = process.env.OCR_WORKER_URL?.trim();
     after(async () => {
       try {
-        await fetch(`${req.nextUrl.origin}/api/ocr-jobs/${jobId}/step`, { method: 'POST' });
+        if (workerUrl) {
+          await fetch(`${workerUrl.replace(/\/+$/, '')}/run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-worker-token': process.env.OCR_WORKER_TOKEN ?? '' },
+            body: JSON.stringify({ jobId }),
+          });
+        } else {
+          await fetch(`${req.nextUrl.origin}/api/ocr-jobs/${jobId}/step`, { method: 'POST' });
+        }
       } catch { /* lần poll sau sẽ kick lại */ }
     });
   }

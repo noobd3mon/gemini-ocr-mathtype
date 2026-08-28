@@ -45,7 +45,9 @@ export async function renderPdfToImages(
     await page.render({ canvasContext: ctx, viewport }).promise;
     pages.push({
       pageNumber: i,
-      dataUrl: canvas.toDataURL('image/png'),
+      // JPEG q0.9 nhẹ gấp ~4 lần PNG → upload + OCR nhanh hơn hẳn, chất lượng
+      // chữ/công thức vẫn đủ (nền đã được fill trắng trước đó).
+      dataUrl: canvas.toDataURL('image/jpeg', 0.9),
       width: canvas.width,
       height: canvas.height,
     });

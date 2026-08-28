@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, skipped: 'locked' });
   }
 
-  const range = batchPageRange(state.nextBatch, state.pageCount);
+  const range = batchPageRange(state.nextBatch, state.pageCount, state.pagesPerStep ?? 2);
   if (!range) {
     // Hết trang — chốt job, XOÁ KEY.
     state.status = 'done';

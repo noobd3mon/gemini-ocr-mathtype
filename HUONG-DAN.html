@@ -138,7 +138,7 @@
     <p>Ứng dụng gồm 2 nửa:</p>
     <ul>
       <li><b>Chuẩn bị task (trong trình duyệt):</b> render từng trang PDF thành ảnh rồi upload lên Supabase, đồng thời tạo task kèm API key của bạn.</li>
-      <li><b>OCR chạy trên server (dạng task nền):</b> server đọc các trang đã upload, gọi Gemini/OpenAI theo từng nhóm 2 trang nối tiếp nhau (mỗi bước là một function độc lập, luôn gọn giới hạn 60s). <b>Bạn có thể đóng tab hoàn toàn</b> sau khi upload xong — quay lại là thấy tiến độ/kết quả.</li>
+      <li><b>OCR chạy trên server (dạng task nền):</b> server đọc các trang đã upload, gọi Gemini/OpenAI từng trang một. <b>Khuyến nghị bật worker Render (mục 4.4)</b> — OCR chạy liền mạch, tự chờ qua rate-limit, không phụ thuộc giới hạn 60s. Bạn có thể đóng tab hoàn toàn sau khi upload xong — quay lại là thấy tiến độ/kết quả.</li>
     </ul>
     <div class="box okbox"><b>Key API của bạn an toàn thế nào khi chạy trên server?</b> Key được đưa vào state của job (bucket <code>ocr-jobs</code> riêng tư, chỉ service-role đọc được) <b>chỉ trong lúc job chạy</b> — bị xoá ngay lập tức khi job xong / lỗi / huỷ. Cron hằng ngày còn quét dọn key của job treo quá 2 giờ và xoá toàn bộ job cũ sau 3 ngày. Key không bao giờ được trả về trình duyệt trong các API trạng thái.</div>
     <p>Luồng xử lý một file PDF:</p>
@@ -256,7 +256,48 @@ MATHTYPE_URL = https://latex2mathtypeweb.onrender.com        (tuỳ chọn, đã
       <li>Vercel → <i>Project → Settings → Cron Jobs</i> → thấy cron <code>/api/cleanup</code> lịch <code>0 3 * * *</code> (giờ UTC).</li>
       <li>OCR thử + xuất thử 1 file (mục 6) → status hiện link <code>...supabase.co/storage/v1/object/sign/word-exports/...</code> là Supabase đã nối đúng.</li>
     </ul>
-    <div class="box warn"><b>Sau này update source:</b> chỉ cần <code>git push</code> lên GitHub — Vercel tự deploy lại. Không cần làm lại mục 3, 4.</div>
+    <h3>4.4. (Khuyến nghị) Worker OCR trên Render — OCR liền mạch, không giới hạn 60s</h3>
+    <p>Theo mặc định, OCR chạy bằng chuỗi function của Vercel (mỗi bước ≤ 60s) — với tài liệu dày đặc, một bước có thể bị cắt giữa chừng khiến task gián đoạn. <b>Worker trên Render chạy trọn vẹn cả task trong một tiến trình</b>: OCR từng trang liên tục, bị rate-limit thì <b>tự chờ ~45s rồi thử lại</b> thay vì fail, model lỗi tự lùi 3.7 → 3.6 → 3.5. Cài một lần duy nhất, sau đó app tự dùng worker khi thấy 2 biến môi trường bên dưới.</p>
+    <ol>
+      <li>Vào <a href="https://dashboard.render.com" target="_blank" rel="noopener">dashboard.render.com</a> → đăng nhập bằng GitHub → <b>New + → Web Service</b> → <b>Build and deploy from a Git repository</b> → kết nối GitHub → chọn <b>repo của app</b>.</li>
+      <li>Điền cấu hình:
+        <table>
+          <tr><th>Mục</th><th>Giá trị</th></tr>
+          <tr><td>Project Name</td><td><code>ocr-worker</code> (tuỳ ý)</td></tr>
+          <tr><td>Language / Runtime</td><td><b>Node</b></td></tr>
+          <tr><td>Branch</td><td><code>main</code></td></tr>
+          <tr><td>Region</td><td>Singapore</td></tr>
+          <tr><td><b>Root Directory</b></td><td><code>worker</code> ← quan trọng, đừng để trống!</td></tr>
+          <tr><td>Build Command</td><td><code>npm install</code></td></tr>
+          <tr><td>Start Command</td><td><code>node server.mjs</code> (hoặc <code>npm start</code>)</td></tr>
+          <tr><td>Instance Type</td><td><b>Free</b></td></tr>
+        </table>
+      </li>
+      <li>Kéo xuống <b>Advanced → Add Environment Variable</b>, thêm 3 biến:
+<pre data-copy><code>SUPABASE_URL = https://&lt;project-ref&gt;.supabase.co        ← giống hệt giá trị ở Vercel (mục 4.2)
+SUPABASE_SERVICE_ROLE_KEY = eyJhbGciOi...               ← giống hệt giá trị ở Vercel
+WORKER_TOKEN = mot-chuoi-ngau-nhien-bat-ky              ← tự nghĩ, dài 16+ ký tự</code></pre>
+      </li>
+      <li><b>Create Web Service</b> → chờ 1–2 phút build.</li>
+      <li>Kiểm tra: mở <code>https://&lt;tên-worker&gt;.onrender.com/health</code> → thấy <code>{"ok":true,"active":0,...}</code> là worker sống.</li>
+      <li>Về <b>Vercel → Settings → Environment Variables</b>, thêm 2 biến:
+<pre data-copy><code>OCR_WORKER_URL = https://&lt;tên-worker&gt;.onrender.com
+OCR_WORKER_TOKEN = &lt;giống hệt WORKER_TOKEN ở Render&gt;</code></pre>
+        rồi <b>Deployments → Redeploy</b>.
+      </li>
+    </ol>
+    <div class="box warn"><b>Không set 2 biến này</b> thì app tự quay lại chạy bằng chuỗi function Vercel — mọi thứ vẫn hoạt động, chỉ là dễ gián đoạn hơn. Render free sau ~15 phút không ai dùng sẽ “ngủ”: task đầu tiên sau khi ngủ chờ thêm ~1 phút để worker thức (app tự đánh thức, task chỉ hơi chậm hơn thường lệ). Khi có job chạy, worker <b>tự giữ tỉnh</b>. <code>WORKER_TOKEN</code> bắt buộc — không ai gọi <code>/run</code> trái phép được.</div>
+
+    <h3>4.5. Cập nhật app lên bản mới mà không phải redo</h3>
+    <p>Mọi thứ bạn đã làm một lần (Supabase + buckets + env + worker trên Render) <b>giữ nguyên vĩnh viễn</b>. Các lần cập nhật sau chỉ gồm:</p>
+    <table>
+      <tr><th>Thay đổi gì</th><th>Bạn cần làm gì</th></tr>
+      <tr><td>Sửa code (thư mục <code>src/</code>)</td><td><b>Không phải làm gì</b> — <code>git push</code> (hoặc tôi push giúp) là Vercel tự deploy lại.</td></tr>
+      <tr><td>File <code>supabase/setup.sql</code> có thay đổi</td><td>Chạy lại script trong Supabase SQL Editor — an toàn, chỉ thêm bucket/policy còn thiếu, không mất dữ liệu cũ. Thông báo màu vàng dạng “Bỏ qua policy…” là bình thường, không phải lỗi.</td></tr>
+      <tr><td>Thư mục <code>worker/</code> có thay đổi</td><td>Render tự deploy lại khi repo đổi (mặc định Auto-Deploy có sẵn). Nếu muốn chủ động: Render → service → <b>Manual Deploy → Deploy latest commit</b>.</td></tr>
+      <tr><td>Hướng dẫn của bản mới nói “thêm biến môi trường X”</td><td>Vercel (và Render nếu biến đó của worker) → thêm → <b>Redeploy</b>.</td></tr>
+    </table>
+    <p class="mut">Tóm lại: lần đầu cài (mục 3 + 4 + 4.4) là việc một lần; từ bản thứ hai trở đi bạn gần như chỉ cần <code>git push</code>.</p>
   </section>
 
   <!-- ================= 5 ================= -->
@@ -322,7 +363,7 @@ npm run dev</code></pre>
     <ol>
       <li>Kéo file PDF vào vùng thả (một hoặc nhiều file cùng lúc). Mỗi file trở thành một <b>task</b> trong danh sách.</li>
       <li>Chờ app render + upload các trang: dòng task hiện <span class="mut">“⏫ tên-file — đang render + upload…”</span>, dòng trạng thái đếm từng trang. Upload xong → task chuyển sang <b>Đang chờ / Đang chạy</b> — <b>từ đây bạn có thể đóng tab</b>, server tự chạy tiếp.</li>
-      <li>Server OCR từng nhóm 2 trang nối tiếp (task hiện <span class="mut">“Đang chạy · nhóm 3/15 — Đang OCR trang 5-6…”</span>). Bị giới hạn tốc độ → tự chuyển key; hết hạn mức ở model đang dùng → Gemini tự lùi 3.7 → 3.6 → 3.5.</li>
+      <li>Server OCR từng trang một, nối tiếp nhau (task hiện <span class="mut">“Đang chạy · nhóm 3/30 · cập nhật 12s trước — Đang OCR trang 3…”</span>). Bị giới hạn tốc độ → tự chuyển key; hết hạn mức ở model đang dùng → Gemini tự lùi 3.7 → 3.6 → 3.5.</li>
       <li>Khi task <b>Xong ✓</b>: bấm <b>Mở kết quả</b> → khung trái là Markdown thô (sửa trực tiếp), khung phải là xem trước KaTeX với hình đã cắt. Thanh số liệu cho biết tổng kí tự / trang / công thức / ảnh.</li>
     </ol>
     <div class="box note"><b>Đi làm việc khác trong lúc OCR:</b> tab còn mở (kể cả thu nhỏ/chuyển tab khác) → khi task xong bạn nghe <b>tiếng “ting”</b> và nhận <b>thông báo desktop</b>; tiêu đề tab hiện số task đang chạy. Tab đã đóng hoàn toàn → mở lại app, danh sách task vẫn đó với đúng tiến độ (server tự nối bước, tự “hồi sinh” task đứt kết nối). Lưu ý: giai đoạn <i>render + upload</i> (vài chục giây đến vài phút tuỳ số trang) vẫn cần tab mở.</div>
@@ -369,6 +410,8 @@ npm run dev</code></pre>
       <tr><td><code>SUPABASE_URL</code></td><td>✅</td><td>Project URL của Supabase, dạng <code>https://xxxx.supabase.co</code>. <span class="mut">Mục 3.3.</span></td></tr>
       <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>✅</td><td>Key <code>service_role</code> của Supabase. <b>Chỉ server dùng</b> — app chặn tuyệt đối không đưa vào trình duyệt. <span class="mut">Mục 3.3.</span></td></tr>
       <tr><td><code>CRON_SECRET</code></td><td>✅</td><td>Mật khẩu bảo vệ <code>/api/cleanup</code>. Vercel cron tự gửi kèm — chỉ cần đặt một chuỗi ngẫu nhiên 16+ ký tự.</td></tr>
+      <tr><td><code>OCR_WORKER_URL</code></td><td>—</td><td>URL worker OCR trên Render (vd <code>https://ocr-worker-xxxx.onrender.com</code>) — mục 4.4. Có biến này → task OCR chạy trên worker: liền mạch, tự chờ rate-limit, không giới hạn 60s. Không có → dùng chuỗi function Vercel.</td></tr>
+      <tr><td><code>OCR_WORKER_TOKEN</code></td><td>—</td><td>Chuỗi bí mật khớp với <code>WORKER_TOKEN</code> của worker trên Render — bảo vệ endpoint <code>/run</code>.</td></tr>
       <tr><td><code>PANDOC_URL</code></td><td>—</td><td><b>Chỉ là dự phòng</b> — chế độ mặc định dùng máy chủ Pandoc tích hợp trong app (không giới hạn ký tự). Điền biến này để ép dùng server Pandoc ngoài, ví dụ <code>https://pandoc-server.onrender.com/convert</code> (giới hạn 1 triệu ký tự).</td></tr>
       <tr><td><code>MATHTYPE_URL</code></td><td>—</td><td>Server MathType chuyển LaTeX → OLE. Mặc định <code>https://latex2mathtypeweb.onrender.com</code>. Ảnh gửi dạng base64 vì server này không tải ảnh từ URL.</td></tr>
     </table>
@@ -407,6 +450,18 @@ npm run dev</code></pre>
       <tr>
         <td>“<i>Invalid path specified in request URL</i>” khi tạo task</td>
         <td>Biến <code>SUPABASE_URL</code> trên Vercel bị dán thừa đường dẫn (thường là <code>https://xxx.supabase.co/rest/v1</code> lấy nhầm từ phần API docs). Sửa lại trong <i>Vercel → Settings → Environment Variables</i> thành đúng <code>https://&lt;project-ref&gt;.supabase.co</code> rồi Redeploy. Bản mới của app đã tự cắt thừa phần này — chỉ cần Redeploy cũng được.</td>
+      </tr>
+      <tr>
+        <td>Task “mãi không xong” / gián đoạn giữa chừng</td>
+        <td>Nhìn dòng task: nếu “cập nhật Xs trước” tăng dần thì đang chạy tốt (job dài thực sự mất vài phút tới chục phút). Nếu đứng yên: <b>bật worker Render theo mục 4.4</b> (nguyên nhân hay gặp nhất là bước Vercel 60s bị cắt); chưa có worker thì <b>mở lại app</b> — task đứt sẽ tự chạy tiếp. Xóa task lỗi rồi thả lại file cũng được.</td>
+      </tr>
+      <tr>
+        <td>Task đầu tiên sau một lúc không dùng bị chậm ~1 phút</td>
+        <td>Worker Render free đang “ngủ” — app tự đánh thức, chỉ lần đầu chậm. Khi có job, worker tự giữ tỉnh.</td>
+      </tr>
+      <tr>
+        <td>Task báo lỗi có chữ “/run” hoặc 401</td>
+        <td><code>OCR_WORKER_TOKEN</code> (Vercel) khác <code>WORKER_TOKEN</code> (Render) — đối chiếu lại 2 giá trị rồi Redeploy; hoặc mở <code>https://&lt;worker&gt;.onrender.com/health</code> xem worker có sống không.</td>
       </tr>
       <tr>
         <td>Trang trắng / lỗi khi mở app sau khi deploy</td>
@@ -492,7 +547,7 @@ vercel.json                      # Cron dọn dẹp 03:00 UTC hằng ngày
       <tr><td>OpenAI — số trang mỗi request</td><td>4 trang (điều chỉnh được qua <code>pagesPerRequest</code> trong code)</td></tr>
       <tr><td>Số trang OCR tối đa / lần</td><td>200 (mặc định 30)</td></tr>
       <tr><td>Lưu file Word trên server</td><td>3 ngày (signed URL 3 ngày + cron dọn lúc 03:00 UTC)</td></tr>
-      <tr><td>OCR nền trên server</td><td>Từng nhóm <b>2 trang/bước</b>, mỗi bước ≤ 60s, tự nối bước; tối đa 200 trang/job. Tab có thể đóng sau khi upload xong.</td></tr>
+      <tr><td>OCR nền trên server</td><td><b>Có worker Render (mục 4.4): chạy liền mạch cả job, tự chờ rate-limit ~45s/lần, không giới hạn thời gian.</b> Không có worker: chuỗi function Vercel 1 trang/bước (≤60s). Ảnh trang nén JPEG ~0.9; tối đa 200 trang/job; tab có thể đóng; mở lại app là task đứt tự chạy tiếp.</td></tr>
       <tr><td>Key API trên server</td><td>Chỉ trong lúc job chạy — xoá khi done/error/cancel; cron quét key job treo sau <b>2 giờ</b>; xoá toàn bộ job sau 3 ngày.</td></tr>
       <tr><td>Gemini — tự lùi model khi hết hạn mức</td><td><code>gemini-3.7-flash</code> → <code>gemini-3.6-flash</code> → <code>gemini-3.5-flash</code> (dùng lại nguyên các key; chỉ lùi khi <b>tất cả</b> key đều bị giới hạn, hoặc model trả 404)</td></tr>
       <tr><td>Cool-down khi key bị 429</td><td>60 giây rồi tự đưa key trở lại vòng xoay</td></tr>

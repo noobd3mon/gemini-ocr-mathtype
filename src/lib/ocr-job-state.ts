@@ -15,7 +15,9 @@ export interface OcrJobState {
   extraPrompt?: string;
   /** Key API dùng tạm trong lúc job chạy — xoá khi done/error/cancel. */
   keys?: string[];
-  /** Nhóm trang kế tiếp cần xử lý (mỗi nhóm = SERVER_PAGES_PER_STEP trang). */
+  /** Số trang mỗi bước server xử lý (job mới = 1; job cũ không có field = 2). */
+  pagesPerStep?: number;
+  /** Nhóm trang kế tiếp cần xử lý (mỗi nhóm = pagesPerStep trang). */
   nextBatch: number;
   /** Markdown của các nhóm đã hoàn tất. */
   chunks: string[];
@@ -27,17 +29,22 @@ export interface OcrJobState {
   updatedAt: number;
 }
 
-/** Số trang mỗi bước server xử lý — giữ nhỏ để luôn gọn giới hạn 60s/function. */
-export const SERVER_PAGES_PER_STEP = 2;
+/**
+ * Số trang mỗi bước server xử lý cho job MỚI. 1 trang/bước để mỗi bước luôn gọn
+ * giới hạn 60s/function của Vercel — 2 trang dày đặc + ảnh PNG lớn dễ vượt mốc
+ * khiến bước bị kill và job treo mãi không xong. Job cũ (trước khi có field này)
+ * mặc định 2 để giữ đúng ngữ nghĩa của nextBatch/chunks đã lưu.
+ */
+export const SERVER_PAGES_PER_STEP = 1;
 
-export function batchPageRange(batch: number, pageCount: number): { from: number; to: number } | null {
-  const from = batch * SERVER_PAGES_PER_STEP;
+export function batchPageRange(batch: number, pageCount: number, per: number): { from: number; to: number } | null {
+  const from = batch * per;
   if (from >= pageCount) return null;
-  return { from, to: Math.min(from + SERVER_PAGES_PER_STEP, pageCount) - 1 };
+  return { from, to: Math.min(from + per, pageCount) - 1 };
 }
 
-export function totalBatches(pageCount: number): number {
-  return Math.ceil(pageCount / SERVER_PAGES_PER_STEP);
+export function totalBatches(pageCount: number, per: number): number {
+  return Math.ceil(pageCount / per);
 }
 
 export function isOcrJobState(raw: unknown): raw is OcrJobState {
@@ -58,12 +65,13 @@ export function publicOcrJobView(state: OcrJobState): {
   totalBatches: number; progressText?: string; error?: string; markdown?: string;
   provider: string; model: string; updatedAt: number;
 } {
+  const per = state.pagesPerStep ?? 2; // job cũ trước khi có pagesPerStep
   return {
     status: state.status,
     fileName: state.fileName,
     pageCount: state.pageCount,
     nextBatch: state.nextBatch,
-    totalBatches: totalBatches(state.pageCount),
+    totalBatches: totalBatches(state.pageCount, per),
     progressText: state.progressText,
     error: state.error,
     markdown: state.status === 'done' ? state.chunks.join('\n\n') : undefined,

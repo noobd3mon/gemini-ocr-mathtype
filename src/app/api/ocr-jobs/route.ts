@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { JobsService } from '@/lib/jobs';
-import type { OcrJobState } from '@/lib/ocr-job-state';
+import { SERVER_PAGES_PER_STEP, type OcrJobState } from '@/lib/ocr-job-state';
 
 export const runtime = 'nodejs';
 
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     ...(maxTokens ? { maxTokens } : {}),
     ...(extraPrompt ? { extraPrompt } : {}),
     keys,
+    pagesPerStep: SERVER_PAGES_PER_STEP,
     nextBatch: 0,
     chunks: [],
     createdAt: now,

@@ -1,0 +1,14 @@
+{
+  "name": "ocr-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OCR worker — chạy job OCR không giới hạn thời gian (deploy lên Render free)",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

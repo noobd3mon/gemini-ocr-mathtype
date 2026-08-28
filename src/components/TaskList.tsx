@@ -19,13 +19,19 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function TaskList({ jobs, uploading, openId, onOpen, onCancel, onDelete }: Props) {
   if (jobs.length === 0 && !uploading) return null;
+  const ageText = (ts: number) => {
+    const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (s < 60) return `${s}s trước`;
+    if (s < 3600) return `${Math.round(s / 60)}p trước`;
+    return `${Math.round(s / 3600)}h trước`;
+  };
   return (
     <div className="task-list">
       {uploading && <div className="task-row task-row--uploading"><b>⏫ {uploading}</b><span className="mut">đang render + upload...</span></div>}
       {jobs.map((job) => {
         const active = job.status === 'queued' || job.status === 'running';
         const progress = active
-          ? `nhóm ${Math.min(job.nextBatch + 1, job.totalBatches)}/${job.totalBatches}`
+          ? `nhóm ${Math.min(job.nextBatch + 1, job.totalBatches)}/${job.totalBatches} · cập nhật ${ageText(job.updatedAt)}`
           : '';
         return (
           <div key={job.id} className={`task-row task-row--${job.status}${openId === job.id ? ' task-row--open' : ''}`}>

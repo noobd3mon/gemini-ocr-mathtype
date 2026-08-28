@@ -40,7 +40,7 @@ npm run dev
 ## Cách dùng
 1. Chọn provider (Gemini hoặc OpenAI), dán API keys (mỗi dòng một key — server tự rotate khi rate-limit; Gemini tự lùi model `3.7-flash → 3.6-flash → 3.5-flash` khi mọi key hết hạn mức).
 2. Kéo thả 1 hoặc nhiều PDF → app render + upload các trang → tạo **task OCR trên server**.
-3. **Đi làm việc khác**: server tự chạy từng nhóm trang nối tiếp (mỗi bước ≤60s, tab có thể đóng hoàn toàn). Mở lại app là thấy tiến độ; nếu tab còn mở sẽ có âm thanh + thông báo khi xong.
+3. **Đi làm việc khác**: server tự OCR từng trang một, nối tiếp (mỗi bước ≤60s, tab có thể đóng hoàn toàn). Mở lại app là thấy tiến độ; nếu tab còn mở sẽ có âm thanh + thông báo khi xong.
 4. "Mở kết quả" → xem trước KaTeX, sửa Markdown nếu cần.
 5. "Xuất Word (Equation)": chạy trên máy chủ Pandoc tích hợp — ảnh cắt được upload lên Supabase dạng signed URL, file Word hoàn chỉnh (đã ép font + style nhãn câu) lưu thẳng vào server 3 ngày. Nếu máy chủ tích hợp lỗi sẽ tự fallback sang server Pandoc ngoài (giới hạn 1 triệu ký tự).
    "Xuất Word (MathType)": server MathType ngoài; file lớn được upload lên server theo từng phần (chunk) để né giới hạn 4.5MB request.
