@@ -107,7 +107,12 @@ export class JobsService {
       contentType: 'application/json',
       upsert: true,
     });
-    if (error) throw new Error(`Lưu trạng thái job thất bại (${jobId}): ${error.message}`);
+    if (error) {
+      throw new Error(
+        `Lưu trạng thái job thất bại (${jobId}): ${error.message}. ` +
+        'Gợi ý: kiểm tra SUPABASE_URL trên Vercel chỉ là https://<project-ref>.supabase.co (không kèm /rest/v1 hay dấu / cuối) và đã chạy supabase/setup.sql để tạo bucket ocr-jobs.',
+      );
+    }
   }
 
   async deleteOcrJob(jobId: string): Promise<void> {
