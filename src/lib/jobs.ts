@@ -76,11 +76,19 @@ export class JobsService {
   // ===== OCR jobs chạy trên server (bucket ocr-jobs) =====
 
   /** Đọc ảnh trang (temp-images, client upload) thành data URL cho bước OCR server.
+   *  Gọi REST trực tiếp + timeout 30s (supabase-js download không hỗ trợ signal) —
+   *  download treo từng là nguyên nhân step bị kill âm thầm ở 60s.
    *  Sniff magic bytes vì đuôi file luôn là .png dù nội dung có thể là JPEG (client
    *  render bằng canvas.toDataURL('image/jpeg')). */
   async getPageDataUrl(jobId: string, page: number): Promise<string> {
-    const dl = await this.supabase.storage.from('temp-images').download(`${jobId}/${page}.png`);
-    if (dl.error || !dl.data) throw new Error(`Không đọc được ảnh trang ${page + 1} (hãy thử chạy lại job).`);
+    const base = (process.env.SUPABASE_URL ?? '').trim().replace(//+$/, '');
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+    const res = await fetch(`${base}/storage/v1/object/temp-images/${jobId}/${page}.png`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) throw new Error(`Không đọc được ảnh trang ${page + 1} (hãy thử chạy lại job).`);
+    const bytes = new Uint8Array(await res.arrayBuffer());
     const bytes = new Uint8Array(await dl.data.arrayBuffer());
     let mime = 'image/png';
     if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) mime = 'image/jpeg';
