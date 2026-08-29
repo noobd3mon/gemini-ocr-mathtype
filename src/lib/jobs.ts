@@ -81,7 +81,7 @@ export class JobsService {
    *  Sniff magic bytes vì đuôi file luôn là .png dù nội dung có thể là JPEG (client
    *  render bằng canvas.toDataURL('image/jpeg')). */
   async getPageDataUrl(jobId: string, page: number): Promise<string> {
-    const base = (process.env.SUPABASE_URL ?? '').trim().replace(//+$/, '');
+    const base = (process.env.SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
     const res = await fetch(`${base}/storage/v1/object/temp-images/${jobId}/${page}.png`, {
       headers: { Authorization: `Bearer ${key}` },
@@ -89,7 +89,6 @@ export class JobsService {
     });
     if (!res.ok) throw new Error(`Không đọc được ảnh trang ${page + 1} (hãy thử chạy lại job).`);
     const bytes = new Uint8Array(await res.arrayBuffer());
-    const bytes = new Uint8Array(await dl.data.arrayBuffer());
     let mime = 'image/png';
     if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) mime = 'image/jpeg';
     else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) mime = 'image/webp';
