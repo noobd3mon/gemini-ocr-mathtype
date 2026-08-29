@@ -85,3 +85,13 @@ describe('runWithRotation', () => {
     ).rejects.toThrow(KeyPoolExhaustedError);
   });
 });
+
+describe('isTimeoutError', () => {
+  it('detects AbortSignal.timeout and abort errors', async () => {
+    const { isTimeoutError } = await import('./key-rotation');
+    expect(isTimeoutError(Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }))).toBe(true);
+    expect(isTimeoutError(Object.assign(new Error('fetch aborted'), { name: 'AbortError' }))).toBe(true);
+    expect(isTimeoutError(new Error('fetch failed'))).toBe(false);
+    expect(isRateLimitError(Object.assign(new Error('slow'), { name: 'TimeoutError' }))).toBe(false);
+  });
+});

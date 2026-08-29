@@ -94,3 +94,13 @@ export async function runWithRotation<T>(
   }
   throw lastError instanceof KeyPoolExhaustedError ? lastError : new KeyPoolExhaustedError();
 }
+
+/** Lỗi do fetch bị huỷ vì quá 45s (AbortSignal.timeout) — mạng chậm/hanging. */
+export function isTimeoutError(err: unknown): boolean {
+  if (err && typeof err === 'object') {
+    const e = err as { name?: string; message?: string };
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') return true;
+    return /timeout|timed out|aborted/i.test(e.message ?? '');
+  }
+  return false;
+}

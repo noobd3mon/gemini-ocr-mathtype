@@ -23,6 +23,8 @@ export interface OcrJobState {
   chunks: string[];
   progressText?: string;
   error?: string;
+  /** Số lần liên tiếp chờ-thử lại vì rate-limit/network chậm (reset về 0 khi một trang thành công). */
+  retryWaits?: number;
   /** Lock chống bước chạy song song (epoch ms). */
   lockUntil?: number;
   createdAt: number;
@@ -36,6 +38,9 @@ export interface OcrJobState {
  * mặc định 2 để giữ đúng ngữ nghĩa của nextBatch/chunks đã lưu.
  */
 export const SERVER_PAGES_PER_STEP = 1;
+
+/** Trần số lần chờ-thử lại liên tiếp trong một bước trước khi báo lỗi (30 × ~45s ≈ 20 phút). */
+export const MAX_STEP_RETRY_WAITS = 30;
 
 export function batchPageRange(batch: number, pageCount: number, per: number): { from: number; to: number } | null {
   const from = batch * per;

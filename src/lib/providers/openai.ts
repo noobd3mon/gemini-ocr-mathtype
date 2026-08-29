@@ -61,6 +61,7 @@ export async function ocrImagesWithOpenAI(opts: OpenAIOcrOptions): Promise<strin
       async (key) => {
         opts.onProgress?.(`Đang gửi trang ${from}-${to} tới ${opts.model}...`);
         const res = await fetch(`${base}/chat/completions`, {
+          signal: AbortSignal.timeout(45_000),
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
           body: JSON.stringify(body),

@@ -1,4 +1,4 @@
-import { KeyPool, KeyPoolExhaustedError, runWithRotation } from '@/lib/key-rotation';
+import { KeyPool, KeyPoolExhaustedError, isTimeoutError, runWithRotation } from '@/lib/key-rotation';
 import { GEMINI_MODELS } from '@/lib/settings-store';
 import { buildCorePrompt } from './prompt';
 import { batchRanges } from './batching';
@@ -50,6 +50,7 @@ export async function ocrPdfWithGemini(opts: GeminiOcrOptions): Promise<string> 
         async (key) => {
           opts.onProgress?.(`Đang OCR ${model}...`);
           const res = await fetch(modelUrl(model), {
+            signal: AbortSignal.timeout(45_000),
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
             body: JSON.stringify({
@@ -148,6 +149,7 @@ export async function ocrPageImagesWithGemini(opts: GeminiImagesOcrOptions): Pro
           async (key) => {
             opts.onProgress?.(`Đang gửi trang ${from}-${to} tới ${model}...`);
             const res = await fetch(modelUrl(model), {
+            signal: AbortSignal.timeout(45_000),
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
               body: JSON.stringify(body),
@@ -167,6 +169,7 @@ export async function ocrPageImagesWithGemini(opts: GeminiImagesOcrOptions): Pro
       }
       return parts.join('\n\n');
     } catch (err) {
+      if (isTimeoutError(err)) throw err; // mạng chậm — để tầng trên chờ-thử lại, đừng lùi model
       lastError = err;
       const exhausted = err instanceof KeyPoolExhaustedError;
       const unavailable = isModelUnavailableError(err);
