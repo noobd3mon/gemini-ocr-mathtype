@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "local": "node scripts/run-local.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

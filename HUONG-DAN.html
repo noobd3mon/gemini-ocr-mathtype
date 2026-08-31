@@ -305,6 +305,13 @@ OCR_WORKER_TOKEN = &lt;giống hệt WORKER_TOKEN ở Render&gt;</code></pre>
   <section id="local">
     <h2 class="sec"><a class="top" href="#top">↑</a><span class="stepnum">5</span>Chạy trên máy cá nhân (tuỳ chọn)</h2>
     <p>App đã chạy được trên Vercel rồi; phần này dành cho ai muốn sửa code hoặc chạy offline. Yêu cầu <b>Node.js ≥ 20</b>.</p>
+
+    <h3>5.0. Chạy local bằng MỘT lệnh — không cần Supabase, không cần .env (khuyên dùng)</h3>
+    <p>Lệnh này khởi động app + worker OCR + Supabase giả lập (dữ liệu trong RAM) cùng lúc — <b>chỉ cần API key Gemini/OpenAI thật</b> là test được toàn bộ luồng: thả PDF → OCR nền → mở kết quả → xuất Word:</p>
+<pre data-copy><code>npm install        # lần đầu
+npm run local</code></pre>
+    <p>Rồi mở <code>http://localhost:3943</code> — dán key, thả PDF, dùng như bản deploy. Muốn tắt: <code>Ctrl+C</code>.</p>
+    <div class="box note"><b>Ưu điểm:</b> không đụng Supabase thật, không cần Render, không cần biến môi trường — cách nhanh nhất để kiểm tra "code có chạy không" trước khi deploy (đã được kiểm thử E2E: OCR 2 trang bằng Gemini thật + xuất docx đầy đủ font/công thức/ảnh).</div>
 <pre data-copy><code># 1. Lấy source về
 git clone &lt;url-source-cua-ban&gt;
 cd ten-thu-muc
